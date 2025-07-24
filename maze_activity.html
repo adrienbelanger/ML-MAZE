@@ -268,14 +268,6 @@
   let mode='rules', loopId=null;
 
   const byId = id=>document.getElementById(id);
-  byId('modeBtn').onclick = () => {
-    mode = mode==='rules'?'ai':'rules';
-    byId('modeBtn').textContent = `Mode: ${mode==='rules'?'Rules':'AI'}`;
-  };
-  byId('bfsBtn').onclick = () => { maze.draw(maze.bfsPath()); };
-  byId('trainBtn').onclick = () => { qAgent.train(maze,1000); alert('AI trained!'); };
-  byId('resetBtn').onclick = () => { clearInterval(loopId); maze.reset(); maze.draw(); };
-  byId('stopBtn').onclick = () => { clearInterval(loopId); };
   byId('startBtn').onclick = () => {
     clearInterval(loopId);
     maze.reset(); maze.draw();
@@ -293,6 +285,7 @@
       maze.draw();
     },300);
   };
+  byId('stopBtn').onclick = () => { clearInterval(loopId); };
   byId('stepBtn').onclick = () => {
     clearInterval(loopId);
     if(mode==='rules'){
@@ -304,6 +297,13 @@
       if(a!==null) maze.step(a);
     }
     maze.draw();
+  };
+  byId('resetBtn').onclick = () => { clearInterval(loopId); maze.reset(); maze.draw(); };
+  byId('trainBtn').onclick = () => { qAgent.train(maze,1000); alert('AI trained!'); };
+  byId('pathBtn').onclick = () => { maze.draw(maze.bfsPath()); };
+  byId('modeBtn').onclick = () => {
+    mode = mode==='rules'?'ai':'rules';
+    byId('modeBtn').textContent = `Mode: ${mode==='rules'?'Rules':'AI'}`;
   };
 
   maze.draw();
