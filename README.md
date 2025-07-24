@@ -30,3 +30,19 @@ Dans cette interface web, vous disposez de plusieurs boutons de contrôle :
 ## Notes pédagogiques
 
 Au début, l'élève peut essayer de définir lui-même une séquence d'actions adaptée à un labyrinthe fixe. Ensuite, le labyrinthe change à chaque exécution et l'élève constate que sa solution doit généraliser. C'est l'occasion d'introduire l'apprentissage automatique.
+
+## Installation et développement
+
+Ce projet utilise [pre-commit](https://pre-commit.com/) pour appliquer les conventions
+de code. Pour installer les dépendances nécessaires et configurer les hooks :
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Pour lancer tous les contrôles sur le dépôt :
+
+```bash
+pre-commit run --all-files
+```

@@ -2,6 +2,7 @@ import random
 from collections import deque
 from typing import List, Tuple
 
+
 class Maze:
     def __init__(self, width: int = 6, height: int = 6, obstacle_ratio: float = 0.2):
         self.width = width
@@ -24,8 +25,10 @@ class Maze:
             return False
         return pos not in self.obstacles
 
+
 class RuleSolver:
     """Breadth-first search for a path."""
+
     def __init__(self, maze: Maze):
         self.maze = maze
 
@@ -37,7 +40,7 @@ class RuleSolver:
             (x, y), path = queue.popleft()
             if (x, y) == goal:
                 return path
-            for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = x + dx, y + dy
                 new_pos = (nx, ny)
                 if new_pos not in visited and self.maze.is_free(new_pos):
@@ -45,8 +48,16 @@ class RuleSolver:
                     queue.append((new_pos, path + [new_pos]))
         return []
 
+
 class QLearningAgent:
-    def __init__(self, maze: Maze, episodes: int = 500, alpha: float = 0.1, gamma: float = 0.9, epsilon: float = 0.2):
+    def __init__(
+        self,
+        maze: Maze,
+        episodes: int = 500,
+        alpha: float = 0.1,
+        gamma: float = 0.9,
+        epsilon: float = 0.2,
+    ):
         self.maze = maze
         self.q = {
             (x, y): [0, 0, 0, 0] for x in range(maze.width) for y in range(maze.height)
@@ -55,7 +66,7 @@ class QLearningAgent:
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
-        self.actions = [(-1,0),(1,0),(0,-1),(0,1)]
+        self.actions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
     def _choose_action(self, state: Tuple[int, int]) -> int:
         if random.random() < self.epsilon:
@@ -63,7 +74,9 @@ class QLearningAgent:
         q_values = self.q[state]
         return q_values.index(max(q_values))
 
-    def _step(self, state: Tuple[int, int], action_idx: int) -> Tuple[Tuple[int, int], float, bool]:
+    def _step(
+        self, state: Tuple[int, int], action_idx: int
+    ) -> Tuple[Tuple[int, int], float, bool]:
         dx, dy = self.actions[action_idx]
         new_state = (state[0] + dx, state[1] + dy)
         if not self.maze.is_free(new_state):
@@ -86,7 +99,9 @@ class QLearningAgent:
                 action = self._choose_action(state)
                 next_state, reward, done = self._step(state, action)
                 best_next = max(self.q[next_state])
-                self.q[state][action] += self.alpha * (reward + self.gamma * best_next - self.q[state][action])
+                self.q[state][action] += self.alpha * (
+                    reward + self.gamma * best_next - self.q[state][action]
+                )
                 state = next_state
 
     def run(self) -> List[Tuple[int, int]]:
@@ -102,6 +117,7 @@ class QLearningAgent:
             state = next_state
             steps += 1
         return path
+
 
 if __name__ == "__main__":
     random.seed(42)
