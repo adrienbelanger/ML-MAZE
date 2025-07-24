@@ -9,6 +9,7 @@
     #blocklyDiv { width: 35%; height: 100%; }
     #rightPanel { flex: 1; display: flex; flex-direction: column; }
     #mazeCanvas { flex: 1; background: #eee; }
+    #chartCanvas { height: 150px; width: 100%; }
     #controls { padding: 10px; text-align: center; }
     button { margin: 0 4px; padding: 6px 10px; font-size: 0.9em; }
   </style>
@@ -21,9 +22,11 @@
   <!-- Maze & controls -->
   <div id="rightPanel">
     <canvas id="mazeCanvas"></canvas>
+    <canvas id="chartCanvas"></canvas>
     <div id="controls">
       <button id="bfsBtn" title="Solve maze using BFS">Solve BFS</button>
       <button id="trainBtn" title="Train the AI agent">Train AI</button>
+      <button id="curveBtn" title="Display training curve">Show learning curve</button>
       <button id="startBtn" aria-label="Start execution" title="Start">Start</button>
       <button id="stepBtn" title="Execute one step">Step</button>
       <button id="stopBtn" aria-label="Stop execution" title="Stop">Stop</button>
@@ -233,7 +236,11 @@
   }
 
   class QAgent {
-    constructor(actions, a=0.1, g=0.9, e=0.2){ this.actions=actions; this.a=a; this.g=g; this.e=e; this.q={}; }
+    constructor(actions, a=0.1, g=0.9, e=0.2){
+      this.actions=actions; this.a=a; this.g=g; this.e=e;
+      this.q={};
+      this.stepsHistory=[];
+    }
     key(s,a){return `${s}|${a}`;}
     get(s,a){return this.q[this.key(s,a)]||0;}
     choose(s){
@@ -247,6 +254,7 @@
       this.q[this.key(s,a)] = old + this.a*(r + this.g*best - old);
     }
     train(env, episodes=500){
+      this.stepsHistory = [];
       for(let e=0;e<episodes;e++){
         env.reset();
         let state=`${env.agent.x},${env.agent.y},${env.agent.dir}`;
@@ -258,6 +266,7 @@
           this.learn(state,a,r,ns);
           state=ns; steps++; done=reached;
         }
+        this.stepsHistory.push(steps);
       }
     }
   }
@@ -268,6 +277,22 @@
   let mode='rules', loopId=null;
 
   const byId = id=>document.getElementById(id);
+  const curveCanvas = byId('chartCanvas');
+  const curveCtx = curveCanvas.getContext('2d');
+  const clearCurve = () => { curveCtx.clearRect(0,0,curveCanvas.width,curveCanvas.height); };
+  const drawCurve = data => {
+    clearCurve();
+    if(!data.length) return;
+    const max = Math.max(...data), w = curveCanvas.width, h = curveCanvas.height;
+    curveCtx.beginPath();
+    data.forEach((v,i)=>{
+      const x = i * (w/Math.max(1,data.length-1));
+      const y = h - (v/max)*h;
+      if(i===0) curveCtx.moveTo(x,y); else curveCtx.lineTo(x,y);
+    });
+    curveCtx.strokeStyle = '#00f';
+    curveCtx.stroke();
+  };
   byId('startBtn').onclick = () => {
     clearInterval(loopId);
     maze.reset(); maze.draw();
@@ -299,7 +324,8 @@
     maze.draw();
   };
   byId('resetBtn').onclick = () => { clearInterval(loopId); maze.reset(); maze.draw(); };
-  byId('trainBtn').onclick = () => { qAgent.train(maze,1000); alert('AI trained!'); };
+  byId('trainBtn').onclick = () => { clearCurve(); qAgent.train(maze,1000); alert('AI trained!'); };
+  byId('curveBtn').onclick = () => { drawCurve(qAgent.stepsHistory); };
   byId('pathBtn').onclick = () => { maze.draw(maze.bfsPath()); };
   byId('modeBtn').onclick = () => {
     mode = mode==='rules'?'ai':'rules';
