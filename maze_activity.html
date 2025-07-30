@@ -147,11 +147,27 @@
             levelDisplay.textContent = 'Level: ' + level;
         }
         levelUpButton.addEventListener('click', () => {
-            if (level < 2) level++;
+            if (level < 2) {
+                level++;
+            } else if (level === 2) {
+                // regenerate when pressing while already on level 2
+                maze = generateSolvableMaze();
+            }
+            if (level === 2) {
+                maze = generateSolvableMaze();
+            } else {
+                maze = JSON.parse(JSON.stringify(staticMaze));
+            }
+            drawGrid();
             updateLevelDisplay();
         });
         levelDownButton.addEventListener('click', () => {
-            if (level > 1) level--;
+            if (level > 1) {
+                level--;
+                maze = JSON.parse(JSON.stringify(staticMaze));
+                drawGrid();
+            }
+
             updateLevelDisplay();
         });
         updateLevelDisplay();
@@ -207,14 +223,28 @@
             ctx.restore();
         }
 
-        function generateRandomMaze() {
-            const m = [];
-            for (let y = 0; y < 8; y++) {
-                const row = [];
-                for (let x = 0; x < 8; x++) {
-                    row.push(Math.random() < 0.3 ? 1 : 0);
+
+        function generateSolvableMaze() {
+            // start with walls everywhere
+            const m = Array.from({ length: 8 }, () => Array(8).fill(1));
+            // carve random path from start(0,0) to goal(7,7)
+            let x = 0, y = 0;
+            m[y][x] = 0;
+            while (x < 7 || y < 7) {
+                if (x === 7) y++;
+                else if (y === 7) x++;
+                else if (Math.random() < 0.5) x++;
+                else y++;
+                m[y][x] = 0;
+            }
+            // randomly add additional open cells/walls without blocking path
+            for (let yy = 0; yy < 8; yy++) {
+                for (let xx = 0; xx < 8; xx++) {
+                    if (m[yy][xx] === 1) {
+                        m[yy][xx] = Math.random() < 0.3 ? 1 : 0;
+                    }
                 }
-                m.push(row);
+
             }
             m[0][0] = 0;
             m[7][7] = 0;
@@ -252,7 +282,9 @@
                 runButton.textContent = 'Stop Program';
                 shouldStop = false;
 
-                maze = level === 2 ? generateRandomMaze() : JSON.parse(JSON.stringify(staticMaze));
+
+                maze = level === 2 ? generateSolvableMaze() : JSON.parse(JSON.stringify(staticMaze));
+
                 robot.x=0; robot.y=0; robot.dir=1;
                 drawGrid();
                 await new Promise(r => setTimeout(r, 300));
