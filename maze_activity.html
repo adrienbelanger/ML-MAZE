@@ -196,7 +196,6 @@
             if (shouldStop) throw 'stopped';
         }
 
-
         async function runProgram() {
             do {
                 restartAfterStop = false;
@@ -206,6 +205,7 @@
 
                 robot.x=0; robot.y=0; robot.dir=0;
                 drawGrid();
+                await new Promise(r => setTimeout(r, 300));
                 const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
                 if (!start) { alert('Add a Start block.'); break; }
                 try {
