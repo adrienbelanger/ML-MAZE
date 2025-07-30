@@ -189,8 +189,15 @@
             // Reset robot to start facing right
             robot.x=0; robot.y=0; robot.dir=1;
             drawGrid();
+            // give the reset state a moment to render
+            await new Promise(r => setTimeout(r, 300));
             const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
-            if (!start) { alert('Add a Start block.'); return; }
+            if (!start) {
+                alert('Add a Start block.');
+                isRunning = false;
+                runButton.disabled = false;
+                return;
+            }
             try {
                 Blockly.JavaScript.init(workspace);
                 const code = Blockly.JavaScript.blockToCode(start);
