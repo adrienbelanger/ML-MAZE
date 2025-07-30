@@ -114,7 +114,11 @@
         /* Canvas setup */
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
+        const runButton = document.getElementById('runButton');
         let tileSize;
+        let isRunning = false;
+        let shouldStop = false;
+        let restartAfterStop = false;
 
         function resizeCanvas() {
             // match drawing buffer to CSS size × devicePixelRatio
@@ -168,6 +172,7 @@
         }
 
         async function moveForward() {
+            if (shouldStop) throw 'stopped';
             const dx = [0, 1, 0, -1], dy = [-1, 0, 1, 0];
             const nx = robot.x + dx[robot.dir], ny = robot.y + dy[robot.dir];
             if (nx>=0 && ny>=0 && nx<8 && ny<8 && maze[ny][nx]===0) {
@@ -175,34 +180,60 @@
             }
             drawGrid();
             await new Promise(r => setTimeout(r, 300));
+            if (shouldStop) throw 'stopped';
         }
-        async function turnLeft() { robot.dir=(robot.dir+3)%4; drawGrid(); await new Promise(r=>setTimeout(r,300)); }
-        async function turnRight() { robot.dir=(robot.dir+1)%4; drawGrid(); await new Promise(r=>setTimeout(r,300)); }
+        async function turnLeft() {
+            if (shouldStop) throw 'stopped';
+            robot.dir=(robot.dir+3)%4; drawGrid();
+            await new Promise(r=>setTimeout(r,300));
+            if (shouldStop) throw 'stopped';
+        }
+        async function turnRight() {
+            if (shouldStop) throw 'stopped';
+            robot.dir=(robot.dir+1)%4; drawGrid();
+            await new Promise(r=>setTimeout(r,300));
+            if (shouldStop) throw 'stopped';
+        }
 
-        document.getElementById('runButton').addEventListener('click', async ()=>{
-            robot.x=0; robot.y=0; robot.dir=0;
-            drawGrid();
-            const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
-            if (!start) { alert('Add a Start block.'); return; }
-            try {
-                Blockly.JavaScript.init(workspace);
-                const code = Blockly.JavaScript.blockToCode(start);
-                // Compile the generated code so it can call the helper
-                // functions defined above. We first create a wrapper
-                // function expecting these helpers as parameters and
-                // returning the async program. That wrapper is then
-                // invoked with the actual helper implementations.
-                const outer = new Function('moveForward', 'turnLeft', 'turnRight', `
-                    return async () => {
-                        ${code}
+        async function runProgram() {
+            do {
+                restartAfterStop = false;
+                isRunning = true;
+                runButton.textContent = 'Stop Program';
+                shouldStop = false;
+
+                robot.x=0; robot.y=0; robot.dir=0;
+                drawGrid();
+                const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
+                if (!start) { alert('Add a Start block.'); break; }
+                try {
+                    Blockly.JavaScript.init(workspace);
+                    const code = Blockly.JavaScript.blockToCode(start);
+                    const outer = new Function('moveForward', 'turnLeft', 'turnRight', `
+                        return async () => {
+                            ${code}
+                        }
+                    `);
+                    const run = outer(moveForward, turnLeft, turnRight);
+                    await run();
+                } catch(err) {
+                    if (err !== 'stopped') {
+                        console.error(err);
+                        alert('Runtime error; see console.');
                     }
-                `);
-                const run = outer(moveForward, turnLeft, turnRight);
-                await run();
+                } finally {
+                    isRunning = false;
+                    runButton.textContent = 'Run Program';
+                }
+            } while (restartAfterStop);
+        }
 
-            } catch(err) {
-                console.error(err);
-                alert('Runtime error; see console.');
+        runButton.addEventListener('click', async ()=>{
+            if (isRunning) {
+                shouldStop = true;
+                restartAfterStop = true;
+            } else {
+                runProgram();
             }
         });
 
