@@ -114,7 +114,9 @@
         /* Canvas setup */
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
+        const runButton = document.getElementById('runButton');
         let tileSize;
+        let isRunning = false;
 
         function resizeCanvas() {
             // match drawing buffer to CSS size × devicePixelRatio
@@ -179,7 +181,10 @@
         async function turnLeft() { robot.dir=(robot.dir+3)%4; drawGrid(); await new Promise(r=>setTimeout(r,300)); }
         async function turnRight() { robot.dir=(robot.dir+1)%4; drawGrid(); await new Promise(r=>setTimeout(r,300)); }
 
-        document.getElementById('runButton').addEventListener('click', async ()=>{
+        runButton.addEventListener('click', async ()=>{
+            if (isRunning) return;
+            isRunning = true;
+            runButton.disabled = true;
             robot.x=0; robot.y=0; robot.dir=0;
             drawGrid();
             const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
@@ -203,6 +208,9 @@
             } catch(err) {
                 console.error(err);
                 alert('Runtime error; see console.');
+            } finally {
+                isRunning = false;
+                runButton.disabled = false;
             }
         });
 
