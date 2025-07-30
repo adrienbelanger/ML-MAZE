@@ -351,14 +351,9 @@
         runButton.addEventListener('click', async ()=>{
             if (isRunning) {
                 shouldStop = true;
-                
+
             } else {
-                runButton.disabled = true;
-                try {
-                    await runProgram();
-                } finally {
-                    runButton.disabled = false;
-                }
+                await runProgram();
 
             }
         });
