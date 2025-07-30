@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/blockly/blockly.min.js"></script>
     
     <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
     
     <style>
       
@@ -186,6 +187,32 @@
                 ]
             }
         });
+
+        // Persist workspace state in the URL for easy sharing
+        function updateURLFromWorkspace() {
+            const xml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(workspace));
+            const comp = LZString.compressToEncodedURIComponent(xml);
+            location.hash = comp;
+        }
+
+        function loadWorkspaceFromURL() {
+            const hash = location.hash.slice(1);
+            if (!hash) return;
+            try {
+                const xmlText = LZString.decompressFromEncodedURIComponent(hash);
+                if (xmlText) {
+                    const dom = Blockly.Xml.textToDom(xmlText);
+                    Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, workspace);
+                }
+            } catch (e) {
+                console.warn('Failed to load workspace from URL:', e);
+            }
+        }
+
+        window.addEventListener('popstate', loadWorkspaceFromURL);
+        window.addEventListener('hashchange', loadWorkspaceFromURL);
+        loadWorkspaceFromURL();
+        workspace.addChangeListener(() => updateURLFromWorkspace());
 
         /* Maze & robot state */
         const staticMaze = [
