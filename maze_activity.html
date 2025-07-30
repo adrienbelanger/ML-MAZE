@@ -1,312 +1,198 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <title>Maze Runner: Rules vs. Q-Learning</title>
-  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
-  <style>
-    body { display: flex; height: 100vh; margin: 0; font-family: sans-serif; }
-    #blocklyDiv { width: 35%; height: 100%; }
-    #rightPanel { flex: 1; display: flex; flex-direction: column; }
-    #mazeCanvas { flex: 1; background: #eee; }
-    #controls { padding: 10px; text-align: center; }
-    button { margin: 0 4px; padding: 6px 10px; font-size: 0.9em; }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blockly Maze Robot</title>
+    
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+    
+    <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
+    
+    <style>
+      
+        /* ensure all elements size consistently */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            font-family: sans-serif;
+        }
+        /* left side: Blockly */
+        #blocklyArea {
+            flex: 0 0 40%;
+            height: 100%;
+            border-right: 1px solid #ccc;
+            overflow: hidden;
+        }
+        /* right side: canvas + button */
+        #visualArea {
+            flex: 1 1 60%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #f0f0f0;
+            padding: 10px;
+        }
+        /* canvas sizing */
+        #gridCanvas {
+            width: 90%;
+            max-width: 600px;
+            aspect-ratio: 1;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            display: block;
+        }
+        /* run button below canvas */
+        #runButton {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-
-  <!-- Blockly workspace -->
-  <div id="blocklyDiv"></div>
-
-  <!-- Maze & controls -->
-  <div id="rightPanel">
-    <canvas id="mazeCanvas"></canvas>
-    <div id="controls">
-      <button id="bfsBtn">Solve BFS</button>
-      <button id="trainBtn">Train AI</button>
-      <button id="startBtn">Start</button>
-      <button id="stepBtn">Step</button>
-      <button id="stopBtn">Stop</button>
-      <button id="resetBtn">Reset</button>
-      <button id="modeBtn">Mode: Rules</button>
+    <div id="blocklyArea"></div>
+    <div id="visualArea">
+        <canvas id="gridCanvas"></canvas>
+        <button id="runButton">Run Program</button>
     </div>
-  </div>
 
-  <!-- Toolbox -->
-  <xml id="toolbox" style="display:none">
-    <category name="Events" colour="#FFD700">
-      <block type="on_start"></block>
-    </category>
-    <category name="Control" colour="#FF8C1A">
-      <block type="controls_if"></block>
-    </category>
-    <category name="Movement" colour="#5C81A6">
-      <block type="move_forward"></block>
-      <block type="turn_left"></block>
-      <block type="turn_right"></block>
-    </category>
-    <category name="Sensors" colour="#A65C81">
-      <block type="wall_ahead"></block>
-    </category>
-  </xml>
+    <script>
+        /* Blockly block definitions */
+        Blockly.defineBlocksWithJsonArray([
+            { type: 'start_block', message0: 'Start', nextStatement: null, colour: 120, hat: 'cap' },
+            { type: 'move_forward', message0: 'Move Forward', previousStatement: null, nextStatement: null, colour: 230 },
+            { type: 'turn_left', message0: 'Turn Left', previousStatement: null, nextStatement: null, colour: 180 },
+            { type: 'turn_right', message0: 'Turn Right', previousStatement: null, nextStatement: null, colour: 180 }
+        ]);
+        Blockly.JavaScript['start_block'] = b => b.getNextBlock() ? Blockly.JavaScript.blockToCode(b.getNextBlock()) : '';
+        Blockly.JavaScript['move_forward'] = () => 'await moveForward();\n';
+        Blockly.JavaScript['turn_left'] = () => 'await turnLeft();\n';
+        Blockly.JavaScript['turn_right'] = () => 'await turnRight();\n';
 
-  <script>
-  Blockly.Workspace.prototype.getAllVariables = function() {
-    return this.getVariableMap().getAllVariables();
-  };
+        /* Inject workspace */
+        const workspace = Blockly.inject('blocklyArea', {
+            toolbox: {
+                kind: 'flyoutToolbox',
+                contents: [
+                    { kind: 'block', type: 'start_block' },
+                    { kind: 'block', type: 'move_forward' },
+                    { kind: 'block', type: 'turn_left' },
+                    { kind: 'block', type: 'turn_right' }
+                ]
+            }
+        });
 
-  Blockly.Blocks['on_start'] = {
-    init() {
-      this.appendDummyInput().appendField('on start');
-      this.appendStatementInput('DO').appendField('do');
-      this.setColour(120);
-    }
-  };
-  Blockly.Blocks['move_forward'] = {
-    init() {
-      this.appendDummyInput().appendField('move forward');
-      this.setColour(160);
-      this.setPreviousStatement(true);
-      this.setNextStatement(true);
-    }
-  };
-  Blockly.Blocks['turn_left'] = {
-    init() {
-      this.appendDummyInput().appendField('turn left');
-      this.setColour(160);
-      this.setPreviousStatement(true);
-      this.setNextStatement(true);
-    }
-  };
-  Blockly.Blocks['turn_right'] = {
-    init() {
-      this.appendDummyInput().appendField('turn right');
-      this.setColour(160);
-      this.setPreviousStatement(true);
-      this.setNextStatement(true);
-    }
-  };
-  Blockly.Blocks['wall_ahead'] = {
-    init() {
-      this.appendDummyInput().appendField('wall ahead?');
-      this.setColour(210);
-      this.setOutput(true,'Boolean');
-    }
-  };
-  Blockly.Blocks['controls_if'] = Blockly.Blocks['controls_if'];
+        /* Maze & robot state */
+        const maze = [
+            [0,0,1,0,0,0,1,0],
+            [1,0,1,0,1,0,1,0],
+            [1,0,0,0,1,0,0,0],
+            [1,1,1,0,1,1,1,0],
+            [0,0,1,0,0,0,1,0],
+            [0,1,1,1,1,0,1,1],
+            [0,1,0,0,0,0,0,0],
+            [0,0,0,1,1,1,1,0],
+        ];
+        const robot = { x: 0, y: 0, dir: 0 };
 
-  const workspace = Blockly.inject('blocklyDiv', {
-    toolbox: document.getElementById('toolbox'),
-    scrollbars: true, trashcan: true
-  });
+        /* Canvas setup */
+        const canvas = document.getElementById('gridCanvas');
+        const ctx = canvas.getContext('2d');
+        let tileSize;
 
-  class Maze {
-    constructor(cols, rows, size) {
-      this.cols = cols; this.rows = rows; this.size = size;
-      this.canvas = document.getElementById('mazeCanvas');
-      this.ctx = this.canvas.getContext('2d');
-      this.canvas.width  = cols * size;
-      this.canvas.height = rows * size;
-      this._buildGrid();
-      this.reset();
-    }
-    _buildGrid() {
-      this.grid = Array(this.rows).fill().map(()=>Array(this.cols).fill(0));
-      for(let y=0;y<this.rows;y++){
-        for(let x=0;x<this.cols;x++){
-          if(x===0||y===0||x===this.cols-1||y===this.rows-1)
-            this.grid[y][x] = 1;
-          else if(Math.random()<0.2)
-            this.grid[y][x] = 1;
+        function resizeCanvas() {
+            // match drawing buffer to CSS size × devicePixelRatio
+            const { width, height } = canvas.getBoundingClientRect();
+            canvas.width = width * devicePixelRatio;
+            canvas.height = height * devicePixelRatio;
+            ctx.scale(devicePixelRatio, devicePixelRatio);
+            tileSize = Math.min(width, height) / 8;
+            drawGrid();
+            workspace.svgResize(); // tell Blockly that its container changed size
         }
-      }
-      this.grid[1][1] = 'S';
-      this.grid[this.rows-2][this.cols-2] = 'G';
-    }
-    reset() { this.agent = { x:1, y:1, dir:0 }; }
-    draw(path=[]) {
-      const {ctx,size,grid} = this;
-      ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
-      for(let y=0;y<grid.length;y++){
-        for(let x=0;x<grid[0].length;x++){
-          const v = grid[y][x];
-          ctx.fillStyle = v===1?'#000':v==='S'?'#0f0':v==='G'?'#f00':'#fff';
-          ctx.fillRect(x*size,y*size,size,size);
-          ctx.strokeRect(x*size,y*size,size,size);
-        }
-      }
-      if(path.length){
-        ctx.fillStyle='#ff0';
-        for(const p of path){
-          ctx.fillRect(p.x*size+10,p.y*size+10,size-20,size-20);
-        }
-      }
-      ctx.fillStyle='#00f';
-      ctx.fillRect(this.agent.x*size+4,this.agent.y*size+4,size-8,size-8);
-    }
-    step(action) {
-      if(action===1) this.agent.dir=(this.agent.dir+3)%4;
-      else if(action===2) this.agent.dir=(this.agent.dir+1)%4;
-      else if(action===0) {
-        const dx=[1,0,-1,0][this.agent.dir],
-              dy=[0,1,0,-1][this.agent.dir],
-              nx=this.agent.x+dx, ny=this.agent.y+dy;
-        if(this.grid[ny][nx]!==1){
-          this.agent.x=nx; this.agent.y=ny;
-        }
-      }
-      return this.grid[this.agent.y][this.agent.x]==='G';
-    }
-    getSensors() {
-      const dx=[1,0,-1,0][this.agent.dir],
-            dy=[0,1,0,-1][this.agent.dir],
-            nx=this.agent.x+dx, ny=this.agent.y+dy;
-      return { wallAhead: this.grid[ny][nx]===1 };
-    }
-    bfsPath(){
-      const start={x:1,y:1}, goal={x:this.cols-2,y:this.rows-2};
-      const queue=[[start,[start]]];
-      const visited=new Set([start.x+','+start.y]);
-      const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-      while(queue.length){
-        const [node,path]=queue.shift();
-        if(node.x===goal.x && node.y===goal.y) return path;
-        for(const [dx,dy] of dirs){
-          const nx=node.x+dx, ny=node.y+dy;
-          const key=nx+','+ny;
-          if(!visited.has(key) && this.grid[ny][nx]!==1){
-            visited.add(key);
-            queue.push([{x:nx,y:ny},path.concat({x:nx,y:ny})]);
-          }
-        }
-      }
-      return [];
-    }
-  }
 
-  class RuleAgent {
-    constructor(ws) { this.ws = ws; this.program = []; this.pc = 0; }
-    reset() {
-      const hats = this.ws.getBlocksByType('on_start', false);
-      this.program = [];
-      if (hats.length) {
-        let b = hats[0].getInputTargetBlock('DO');
-        while (b) { this.program.push(b); b = b.getNextBlock(); }
-      }
-      this.pc = 0;
-    }
-    step(sensors) {
-      if (this.pc >= this.program.length) return null;
-      const block = this.program[this.pc++];
-      return this._exec(block, sensors);
-    }
-    done() { return this.pc >= this.program.length; }
-    _exec(block, sensors) {
-      switch (block.type) {
-        case 'move_forward': return 0;
-        case 'turn_left':    return 1;
-        case 'turn_right':   return 2;
-        case 'controls_if':
-          const cond = block.getInputTargetBlock('IF0');
-          if ( this._evalCond(cond, sensors) ) {
-            let inner = block.getInputTargetBlock('DO0');
-            let last = null;
-            while (inner) { last = this._exec(inner, sensors); inner = inner.getNextBlock(); }
-            return last;
-          }
-          return null;
-        default:
-          return null;
-      }
-    }
-    _evalCond(block, sensors) {
-      if (!block) return false;
-      switch (block.type) {
-        case 'logic_boolean':
-          return block.getFieldValue('BOOL')==='TRUE';
-        case 'wall_ahead':
-          return sensors.wallAhead;
-        default:
-          return false;
-      }
-    }
-  }
-
-  class QAgent {
-    constructor(actions, a=0.1, g=0.9, e=0.2){ this.actions=actions; this.a=a; this.g=g; this.e=e; this.q={}; }
-    key(s,a){return `${s}|${a}`;}
-    get(s,a){return this.q[this.key(s,a)]||0;}
-    choose(s){
-      if(Math.random()<this.e)
-        return this.actions[Math.floor(Math.random()*this.actions.length)];
-      const qs=this.actions.map(a=>this.get(s,a)), m=Math.max(...qs);
-      return this.actions[qs.indexOf(m)];
-    }
-    learn(s,a,r,s2){
-      const old=this.get(s,a), best=Math.max(...this.actions.map(x=>this.get(s2,x)));
-      this.q[this.key(s,a)] = old + this.a*(r + this.g*best - old);
-    }
-    train(env, episodes=500){
-      for(let e=0;e<episodes;e++){
-        env.reset();
-        let state=`${env.agent.x},${env.agent.y},${env.agent.dir}`;
-        let done=false,steps=0;
-        while(!done && steps<200){
-          const a=this.choose(state), reached=env.step(a);
-          const ns=`${env.agent.x},${env.agent.y},${env.agent.dir}`;
-          const r=reached?1:-0.01;
-          this.learn(state,a,r,ns);
-          state=ns; steps++; done=reached;
+        function drawGrid() {
+            const { width, height } = canvas.getBoundingClientRect();
+            ctx.clearRect(0, 0, width, height);
+            // draw cells
+            for (let y=0; y<8; y++) {
+                for (let x=0; x<8; x++) {
+                    ctx.fillStyle = maze[y][x] ? '#000' : '#fff';
+                    ctx.fillRect(x*tileSize, y*tileSize, tileSize, tileSize);
+                    ctx.strokeStyle = '#999';
+                    ctx.strokeRect(x*tileSize, y*tileSize, tileSize, tileSize);
+                }
+            }
+            // goal
+            ctx.fillStyle = 'green';
+            ctx.beginPath();
+            ctx.arc(7.5*tileSize, 7.5*tileSize, tileSize/4, 0, 2*Math.PI);
+            ctx.fill();
+            // robot
+            const cx = robot.x*tileSize + tileSize/2;
+            const cy = robot.y*tileSize + tileSize/2;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(robot.dir * Math.PI/2);
+            ctx.beginPath();
+            ctx.moveTo(0, -tileSize/3);
+            ctx.lineTo(tileSize/4, tileSize/4);
+            ctx.lineTo(-tileSize/4, tileSize/4);
+            ctx.closePath();
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.restore();
         }
-      }
-    }
-  }
 
-  const maze   = new Maze(10,10,40),
-        rAgent = new RuleAgent(workspace),
-        qAgent = new QAgent([0,1,2]);
-  let mode='rules', loopId=null;
+        async function moveForward() {
+            const dx = [0, 1, 0, -1], dy = [-1, 0, 1, 0];
+            const nx = robot.x + dx[robot.dir], ny = robot.y + dy[robot.dir];
+            if (nx>=0 && ny>=0 && nx<8 && ny<8 && maze[ny][nx]===0) {
+                robot.x = nx; robot.y = ny;
+            }
+            drawGrid();
+            await new Promise(r => setTimeout(r, 300));
+        }
+        async function turnLeft() { robot.dir=(robot.dir+3)%4; drawGrid(); await new Promise(r=>setTimeout(r,300)); }
+        async function turnRight() { robot.dir=(robot.dir+1)%4; drawGrid(); await new Promise(r=>setTimeout(r,300)); }
 
-  const byId = id=>document.getElementById(id);
-  byId('modeBtn').onclick = () => {
-    mode = mode==='rules'?'ai':'rules';
-    byId('modeBtn').textContent = `Mode: ${mode==='rules'?'Rules':'AI'}`;
-  };
-  byId('bfsBtn').onclick = () => { maze.draw(maze.bfsPath()); };
-  byId('trainBtn').onclick = () => { qAgent.train(maze,1000); alert('AI trained!'); };
-  byId('resetBtn').onclick = () => { clearInterval(loopId); maze.reset(); maze.draw(); };
-  byId('stopBtn').onclick = () => { clearInterval(loopId); };
-  byId('startBtn').onclick = () => {
-    clearInterval(loopId);
-    maze.reset(); maze.draw();
-    if(mode==='rules') rAgent.reset();
-    loopId = setInterval(() => {
-      let action=null;
-      if(mode==='rules'){
-        action = rAgent.step(maze.getSensors());
-        if(rAgent.done()) clearInterval(loopId);
-      } else {
-        action = qAgent.choose(`${maze.agent.x},${maze.agent.y},${maze.agent.dir}`);
-        if(maze.step(action)) clearInterval(loopId);
-      }
-      if(action!==null) maze.step(action);
-      maze.draw();
-    },300);
-  };
-  byId('stepBtn').onclick = () => {
-    clearInterval(loopId);
-    if(mode==='rules'){
-      if(rAgent.done()) rAgent.reset();
-      const a = rAgent.step(maze.getSensors());
-      if(a!==null) maze.step(a);
-    } else {
-      const a = qAgent.choose(`${maze.agent.x},${maze.agent.y},${maze.agent.dir}`);
-      if(a!==null) maze.step(a);
-    }
-    maze.draw();
-  };
+        document.getElementById('runButton').addEventListener('click', async ()=>{
+            robot.x=0; robot.y=0; robot.dir=0;
+            drawGrid();
+            const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
+            if (!start) { alert('Add a Start block.'); return; }
+            try {
+                Blockly.JavaScript.init(workspace);
+                const code = Blockly.JavaScript.blockToCode(start);
+                // Fix: Define the functions that will be available in the 'new Function' scope.
+                // You need to pass these functions as arguments to the new function,
+                // and then invoke the created function with those arguments.
+                const fn = new Function('moveForward', 'turnLeft', 'turnRight', `
+                    return async () => {
+                        ${code}
+                    }
+                `)(); // Immediately invoke the outer function to get the async inner function
+                
+                // Now, call the returned async function, passing in your actual functions
+                await fn(moveForward, turnLeft, turnRight); 
 
-  maze.draw();
-  </script>
+            } catch(err) {
+                console.error(err);
+                alert('Runtime error; see console.');
+            }
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+    </script>
 </body>
 </html>
