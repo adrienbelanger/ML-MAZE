@@ -286,9 +286,14 @@
         }
     }
     maze[n - 1][n - 1] = 0;
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (maze[y][x] && Math.random() < 0.1) maze[y][x] = 0;
+    maze[n - 2][n - 1] = 0;   // (7,6)
+    maze[n - 1][n - 2] = 1;   // (6,7)
+    for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++)
+            if (maze[y][x] && Math.random() < 0.1) maze[y][x] = 0;
     return maze;
 }
+
 
         async function moveForward() {
             if (shouldStop) throw 'stopped';
