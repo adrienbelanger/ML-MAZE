@@ -118,6 +118,8 @@
         const runButton = document.getElementById('runButton');
         let tileSize;
         let isRunning = false;
+        let shouldStop = false;
+        let restartAfterStop = false;
 
         function resizeCanvas() {
             // match drawing buffer to CSS size × devicePixelRatio
@@ -171,6 +173,7 @@
         }
 
         async function moveForward() {
+            if (shouldStop) throw 'stopped';
             const dx = [0, 1, 0, -1], dy = [-1, 0, 1, 0];
             const nx = robot.x + dx[robot.dir], ny = robot.y + dy[robot.dir];
             if (nx>=0 && ny>=0 && nx<8 && ny<8 && maze[ny][nx]===0) {
@@ -178,9 +181,20 @@
             }
             drawGrid();
             await new Promise(r => setTimeout(r, 300));
+            if (shouldStop) throw 'stopped';
         }
-        async function turnLeft() { robot.dir=(robot.dir+3)%4; drawGrid(); await new Promise(r=>setTimeout(r,300)); }
-        async function turnRight() { robot.dir=(robot.dir+1)%4; drawGrid(); await new Promise(r=>setTimeout(r,300)); }
+        async function turnLeft() {
+            if (shouldStop) throw 'stopped';
+            robot.dir=(robot.dir+3)%4; drawGrid();
+            await new Promise(r=>setTimeout(r,300));
+            if (shouldStop) throw 'stopped';
+        }
+        async function turnRight() {
+            if (shouldStop) throw 'stopped';
+            robot.dir=(robot.dir+1)%4; drawGrid();
+            await new Promise(r=>setTimeout(r,300));
+            if (shouldStop) throw 'stopped';
+        }
 
         runButton.addEventListener('click', async ()=>{
             if (isRunning) return;
@@ -209,17 +223,23 @@
                 const outer = new Function('moveForward', 'turnLeft', 'turnRight', `
                     return async () => {
                         ${code}
-                    }
-                `);
-                const run = outer(moveForward, turnLeft, turnRight);
-                await run();
 
-            } catch(err) {
-                console.error(err);
-                alert('Runtime error; see console.');
-            } finally {
-                isRunning = false;
-                runButton.disabled = false;
+                    }
+                } finally {
+                    isRunning = false;
+                    runButton.textContent = 'Run Program';
+                }
+            } while (restartAfterStop);
+        }
+
+
+        runButton.addEventListener('click', async ()=>{
+            if (isRunning) {
+                shouldStop = true;
+                restartAfterStop = true;
+            } else {
+                runProgram();
+
             }
         });
 
