@@ -251,6 +251,17 @@
             ctx.restore();
         }
 
+        async function goalAnimation() {
+            const prevText = runButton.textContent;
+            runButton.textContent = 'Goal!';
+            for (let i = 0; i < 8; i++) {
+                robot.dir = (robot.dir + 1) % 4;
+                drawGrid();
+                await new Promise(r => setTimeout(r, 100));
+            }
+            runButton.textContent = prevText;
+        }
+
 
  function generateSolvableMaze() {
     const n = 8;
@@ -287,6 +298,11 @@
                 robot.x = nx; robot.y = ny;
             }
             drawGrid();
+            if (robot.x === 7 && robot.y === 7) {
+                await goalAnimation();
+                shouldStop = true;
+                throw 'goal';
+            }
             await new Promise(r => setTimeout(r, 300));
             if (shouldStop) throw 'stopped';
         }
@@ -340,7 +356,7 @@
                     const run = outer(moveForward, turnLeft, turnRight);
                     await run();
                 } catch(err) {
-                    if (err !== 'stopped') {
+                    if (err !== 'stopped' && err !== 'goal') {
                         console.error(err);
                         alert('Runtime error; see console.');
 
