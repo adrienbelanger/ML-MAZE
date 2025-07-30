@@ -67,12 +67,14 @@
             font-size: 16px;
             cursor: pointer;
         }
+
         #batchButton {
             margin-top: 5px;
             padding: 5px 10px;
             font-size: 14px;
             cursor: pointer;
         }
+
         #chartCanvas {
             width: 90%;
             max-width: 600px;
@@ -199,7 +201,9 @@
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
         const runButton = document.getElementById('runButton');
+
         const batchButton = document.getElementById('batchButton');
+
         const modeButton = document.getElementById('modeButton');
         const speedSlider = document.getElementById('speedSlider');
         const chartCanvas = document.getElementById('chartCanvas');
@@ -421,6 +425,7 @@
 
         function atGoal() { return robot.x===7 && robot.y===7; }
 
+
         function applyAction(a) {
             if (a===0) {
                 const dx=[0,1,0,-1], dy=[-1,0,1,0];
@@ -435,6 +440,7 @@
             }
         }
 
+
         async function stepAction(a, color) {
             if (a===0) await moveForward(color);
             else if (a===1) await turnLeft(color);
@@ -442,10 +448,12 @@
             return atGoal() ? 0 : -1;
         }
 
+
         function resetMaze(skipDraw=false) {
             maze = level === 2 ? generateSolvableMaze() : JSON.parse(JSON.stringify(staticMaze));
             robot.x=0; robot.y=0; robot.dir=1; trail=[];
             if (!skipDraw) drawGrid();
+
         }
 
         function drawChart() {
@@ -463,12 +471,15 @@
             chartCtx.stroke();
         }
 
+
         async function trainEpisode(maxSteps=128, fast=false) {
             resetMaze(fast);
+
             for (let t=0; t<maxSteps; t++) {
                 const s = encodeState(robot);
                 let a, exploring=false;
                 if (Math.random()<eps) { exploring=true; a=randomAct(); } else a=argMaxQ(s);
+
                 let reward;
                 if (fast) {
                     applyAction(a);
@@ -479,6 +490,7 @@
                 const s2 = encodeState(robot);
                 qTable[s][a] += alpha*(reward + gamma*maxQ(s2) - qTable[s][a]);
                 if (!fast) drawGrid();
+
                 if (atGoal()) return t+1;
             }
             return maxSteps;
@@ -509,6 +521,7 @@
             }
         }
 
+
         async function runFastEpisodes(n=100) {
             training = true;
             updateModeDisplay();
@@ -523,6 +536,7 @@
             drawGrid();
             updateModeDisplay();
         }
+
 
         async function runAIOnce() {
             await runGreedyEpisode();
@@ -590,12 +604,14 @@
                 updateModeDisplay();
             } else {
                 await runAIOnce();
+
             }
         });
 
         batchButton.addEventListener('click', async () => {
             if (mode === 'AI Train' && !training) {
                 await runFastEpisodes(100);
+
             }
         });
 
