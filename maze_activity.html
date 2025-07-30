@@ -323,7 +323,12 @@
                 drawGrid();
                 await new Promise(r => setTimeout(r, 300));
                 const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
-                if (!start) { alert('Add a Start block.'); break; }
+                if (!start) {
+                    alert('Add a Start block.');
+                    isRunning = false;
+                    runButton.textContent = 'Run Program';
+                    break;
+                }
                 try {
                     Blockly.JavaScript.init(workspace);
                     const code = Blockly.JavaScript.blockToCode(start);
@@ -350,6 +355,7 @@
 
         runButton.addEventListener('click', async ()=>{
             if (isRunning) {
+                if (shouldStop) restartAfterStop = true;
                 shouldStop = true;
 
             } else {
