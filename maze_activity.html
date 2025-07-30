@@ -167,6 +167,7 @@
                 maze = JSON.parse(JSON.stringify(staticMaze));
                 drawGrid();
             }
+
             updateLevelDisplay();
         });
         updateLevelDisplay();
@@ -222,6 +223,7 @@
             ctx.restore();
         }
 
+
         function generateSolvableMaze() {
             // start with walls everywhere
             const m = Array.from({ length: 8 }, () => Array(8).fill(1));
@@ -242,6 +244,7 @@
                         m[yy][xx] = Math.random() < 0.3 ? 1 : 0;
                     }
                 }
+
             }
             m[0][0] = 0;
             m[7][7] = 0;
@@ -279,7 +282,9 @@
                 runButton.textContent = 'Stop Program';
                 shouldStop = false;
 
+
                 maze = level === 2 ? generateSolvableMaze() : JSON.parse(JSON.stringify(staticMaze));
+
                 robot.x=0; robot.y=0; robot.dir=1;
                 drawGrid();
                 await new Promise(r => setTimeout(r, 300));
