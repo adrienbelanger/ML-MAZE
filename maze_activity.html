@@ -237,7 +237,12 @@
                 shouldStop = true;
                 restartAfterStop = true;
             } else {
-                runProgram();
+                runButton.disabled = true;
+                try {
+                    await runProgram();
+                } finally {
+                    runButton.disabled = false;
+                }
 
             }
         });
