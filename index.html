@@ -82,6 +82,13 @@
             cursor: pointer;
         }
 
+        #stopAIButton {
+            margin-top: 5px;
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
         #chartCanvas {
             width: 90%;
             max-width: 600px;
@@ -106,6 +113,7 @@
         <canvas id="gridCanvas"></canvas>
         <canvas id="chartCanvas" style="width:90%;max-width:600px;height:50px;"></canvas>
         <button id="runButton">Run Program</button>
+        <button id="stopAIButton" style="display:none;">Stop AI</button>
         <button id="trainButton">Start Training</button>
         <button id="batchButton">Train 100</button>
         <div id="levelControls">
@@ -113,7 +121,7 @@
             <span id="levelDisplay"></span>
             <button id="levelUpButton">Level +</button>
             <button id="modeButton">Mode: Blockly</button>
-            <label id="speedLabel">Speed:<input type="range" id="speedSlider" min="2" max="60" value="20"></label>
+            <label id="speedLabel">Speed:<input type="range" id="speedSlider" min="2" max="60" value="20"> <span id="speedValue">20</span></label>
         </div>
     </div>
 
@@ -209,12 +217,14 @@
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
         const runButton = document.getElementById('runButton');
+        const stopAIButton = document.getElementById('stopAIButton');
         const trainButton = document.getElementById('trainButton');
         const batchButton = document.getElementById('batchButton');
 
         const modeButton = document.getElementById('modeButton');
         const speedSlider = document.getElementById('speedSlider');
         const speedLabel = document.getElementById('speedLabel');
+        const speedValue = document.getElementById('speedValue');
         const chartCanvas = document.getElementById('chartCanvas');
         const chartCtx = chartCanvas.getContext('2d');
         const levelDisplay = document.getElementById('levelDisplay');
@@ -225,10 +235,12 @@
         let isRunning = false;
         let shouldStop = false;
         let restartAfterStop = false;
+        let aiRunning = false;
         let mode = 'Blockly';
 
         speedSlider.addEventListener('input', () => {
             speed = parseInt(speedSlider.value);
+            speedValue.textContent = speed;
         });
 
         function updateLevelDisplay() {
@@ -239,16 +251,21 @@
             modeButton.textContent = 'Mode: ' + mode;
             if (mode === 'Blockly') {
                 runButton.textContent = 'Run Program';
+                runButton.disabled = false;
+                stopAIButton.style.display = 'none';
                 trainButton.style.display = 'none';
                 batchButton.style.display = 'none';
                 chartCanvas.style.display = 'none';
                 speedLabel.style.display = 'none';
             } else {
                 runButton.textContent = 'Run AI';
+                runButton.disabled = aiRunning;
+                stopAIButton.style.display = aiRunning ? '' : 'none';
                 trainButton.style.display = '';
                 batchButton.style.display = '';
                 chartCanvas.style.display = '';
                 speedLabel.style.display = '';
+                speedValue.textContent = speed;
                 trainButton.textContent = training ? 'Stop Training' : 'Start Training';
             }
         }
@@ -260,6 +277,7 @@
                 mode = 'Blockly';
                 if (training) training = false;
             }
+            resetMaze();
             updateModeDisplay();
         });
         updateModeDisplay();
@@ -294,7 +312,7 @@
             const { width, height } = canvas.getBoundingClientRect();
             canvas.width = width * devicePixelRatio;
             canvas.height = height * devicePixelRatio;
-            ctx.scale(devicePixelRatio, devicePixelRatio);
+            ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
             tileSize = Math.min(width, height) / 8;
             drawGrid();
             // Blockly's resize API changed in recent versions. Use the
@@ -411,21 +429,21 @@
                 shouldStop = true;
                 throw 'goal';
             }
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise(r => setTimeout(r, 1000 / speed));
             if (shouldStop) throw 'stopped';
         }
         async function turnLeft(color) {
             if (shouldStop) throw 'stopped';
             if (color) trail.push({x: robot.x, y: robot.y, color});
             robot.dir=(robot.dir+3)%4; drawGrid();
-            await new Promise(r=>setTimeout(r,300));
+            await new Promise(r => setTimeout(r, 1000 / speed));
             if (shouldStop) throw 'stopped';
         }
         async function turnRight(color) {
             if (shouldStop) throw 'stopped';
             if (color) trail.push({x: robot.x, y: robot.y, color});
             robot.dir=(robot.dir+1)%4; drawGrid();
-            await new Promise(r=>setTimeout(r,300));
+            await new Promise(r => setTimeout(r, 1000 / speed));
             if (shouldStop) throw 'stopped';
         }
 
@@ -481,7 +499,7 @@
         function drawChart() {
             const w = chartCanvas.width = chartCanvas.getBoundingClientRect().width * devicePixelRatio;
             const h = chartCanvas.height = chartCanvas.getBoundingClientRect().height * devicePixelRatio;
-            chartCtx.scale(devicePixelRatio, devicePixelRatio);
+            chartCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
             chartCtx.clearRect(0,0,w,h);
             chartCtx.strokeStyle = 'black';
             chartCtx.beginPath();
@@ -561,7 +579,17 @@
 
 
         async function runAIOnce() {
-            await runGreedyEpisode();
+            aiRunning = true;
+            shouldStop = false;
+            updateModeDisplay();
+            try {
+                await runGreedyEpisode();
+            } catch (err) {
+                if (err !== 'stopped' && err !== 'goal') console.error(err);
+            } finally {
+                aiRunning = false;
+                updateModeDisplay();
+            }
         }
 
         async function runProgram() {
@@ -576,7 +604,7 @@
 
                 robot.x=0; robot.y=0; robot.dir=1;
                 drawGrid();
-                await new Promise(r => setTimeout(r, 300));
+                await new Promise(r => setTimeout(r, 1000 / speed));
                 const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
                 if (!start) {
                     alert('Add a Start block.');
@@ -622,7 +650,12 @@
             }
         });
 
+        stopAIButton.addEventListener('click', () => {
+            if (aiRunning) shouldStop = true;
+        });
+
         trainButton.addEventListener('click', async () => {
+            resetMaze();
             if (training) {
                 training = false;
             } else {
