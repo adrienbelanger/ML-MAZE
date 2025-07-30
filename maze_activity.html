@@ -109,7 +109,8 @@
             [0,1,0,0,0,0,0,0],
             [0,0,0,1,1,1,1,0],
         ];
-        const robot = { x: 0, y: 0, dir: 0 };
+        // Start facing right instead of up
+        const robot = { x: 0, y: 0, dir: 1 };
 
         /* Canvas setup */
         const canvas = document.getElementById('gridCanvas');
@@ -185,7 +186,8 @@
             if (isRunning) return;
             isRunning = true;
             runButton.disabled = true;
-            robot.x=0; robot.y=0; robot.dir=0;
+            // Reset robot to start facing right
+            robot.x=0; robot.y=0; robot.dir=1;
             drawGrid();
             const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
             if (!start) { alert('Add a Start block.'); return; }
