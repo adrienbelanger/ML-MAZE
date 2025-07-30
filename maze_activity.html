@@ -203,7 +203,7 @@
                 runButton.textContent = 'Stop Program';
                 shouldStop = false;
 
-                robot.x=0; robot.y=0; robot.dir=0;
+                robot.x=0; robot.y=0; robot.dir=1;
                 drawGrid();
                 await new Promise(r => setTimeout(r, 300));
                 const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
