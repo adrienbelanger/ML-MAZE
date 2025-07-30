@@ -192,7 +192,8 @@
         function updateURLFromWorkspace() {
             const xml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(workspace));
             const comp = LZString.compressToEncodedURIComponent(xml);
-            history.replaceState(null, '', '#' + comp);
+
+            location.hash = comp;
         }
 
         function loadWorkspaceFromURL() {
@@ -210,6 +211,9 @@
         }
 
         window.addEventListener('popstate', loadWorkspaceFromURL);
+
+        window.addEventListener('hashchange', loadWorkspaceFromURL);
+
         loadWorkspaceFromURL();
         workspace.addChangeListener(() => updateURLFromWorkspace());
 
