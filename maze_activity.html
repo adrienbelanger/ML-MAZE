@@ -75,7 +75,8 @@
         ]);
         Blockly.JavaScript.forBlock['start_block'] = function(block) {
             const next = block.getNextBlock();
-            return next ? Blockly.JavaScript.blockToCode(next) : '';
+              return next ? Blockly.JavaScript.blockToCode(next, true) : '';
+
         };
         Blockly.JavaScript.forBlock['move_forward'] =
             () => 'await moveForward();\n';
@@ -235,7 +236,7 @@
         runButton.addEventListener('click', async ()=>{
             if (isRunning) {
                 shouldStop = true;
-                restartAfterStop = true;
+                
             } else {
                 runButton.disabled = true;
                 try {
