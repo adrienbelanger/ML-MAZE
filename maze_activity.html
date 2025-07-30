@@ -40,6 +40,17 @@
             background: #f0f0f0;
             padding: 10px;
         }
+        #levelControls {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        #levelControls button {
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
         /* canvas sizing */
         #gridCanvas {
             width: 90%;
@@ -63,6 +74,11 @@
     <div id="visualArea">
         <canvas id="gridCanvas"></canvas>
         <button id="runButton">Run Program</button>
+        <div id="levelControls">
+            <button id="levelDownButton">Level -</button>
+            <span id="levelDisplay"></span>
+            <button id="levelUpButton">Level +</button>
+        </div>
     </div>
 
     <script>
@@ -100,7 +116,7 @@
         });
 
         /* Maze & robot state */
-        const maze = [
+        const staticMaze = [
             [0,0,1,0,0,0,1,0],
             [1,0,1,0,1,0,1,0],
             [1,0,0,0,1,0,0,0],
@@ -110,6 +126,8 @@
             [0,1,0,0,0,0,0,0],
             [0,0,0,1,1,1,1,0],
         ];
+        let maze = JSON.parse(JSON.stringify(staticMaze));
+        let level = 1;
         // Start facing right instead of up
         const robot = { x: 0, y: 0, dir: 1 };
 
@@ -117,10 +135,41 @@
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
         const runButton = document.getElementById('runButton');
+        const levelDisplay = document.getElementById('levelDisplay');
+        const levelUpButton = document.getElementById('levelUpButton');
+        const levelDownButton = document.getElementById('levelDownButton');
         let tileSize;
         let isRunning = false;
         let shouldStop = false;
         let restartAfterStop = false;
+
+        function updateLevelDisplay() {
+            levelDisplay.textContent = 'Level: ' + level;
+        }
+        levelUpButton.addEventListener('click', () => {
+            if (level < 2) {
+                level++;
+            } else if (level === 2) {
+                // regenerate when pressing while already on level 2
+                maze = generateSolvableMaze();
+            }
+            if (level === 2) {
+                maze = generateSolvableMaze();
+            } else {
+                maze = JSON.parse(JSON.stringify(staticMaze));
+            }
+            drawGrid();
+            updateLevelDisplay();
+        });
+        levelDownButton.addEventListener('click', () => {
+            if (level > 1) {
+                level--;
+                maze = JSON.parse(JSON.stringify(staticMaze));
+                drawGrid();
+            }
+            updateLevelDisplay();
+        });
+        updateLevelDisplay();
 
         function resizeCanvas() {
             // match drawing buffer to CSS size × devicePixelRatio
@@ -173,6 +222,32 @@
             ctx.restore();
         }
 
+        function generateSolvableMaze() {
+            // start with walls everywhere
+            const m = Array.from({ length: 8 }, () => Array(8).fill(1));
+            // carve random path from start(0,0) to goal(7,7)
+            let x = 0, y = 0;
+            m[y][x] = 0;
+            while (x < 7 || y < 7) {
+                if (x === 7) y++;
+                else if (y === 7) x++;
+                else if (Math.random() < 0.5) x++;
+                else y++;
+                m[y][x] = 0;
+            }
+            // randomly add additional open cells/walls without blocking path
+            for (let yy = 0; yy < 8; yy++) {
+                for (let xx = 0; xx < 8; xx++) {
+                    if (m[yy][xx] === 1) {
+                        m[yy][xx] = Math.random() < 0.3 ? 1 : 0;
+                    }
+                }
+            }
+            m[0][0] = 0;
+            m[7][7] = 0;
+            return m;
+        }
+
         async function moveForward() {
             if (shouldStop) throw 'stopped';
             const dx = [0, 1, 0, -1], dy = [-1, 0, 1, 0];
@@ -204,6 +279,7 @@
                 runButton.textContent = 'Stop Program';
                 shouldStop = false;
 
+                maze = level === 2 ? generateSolvableMaze() : JSON.parse(JSON.stringify(staticMaze));
                 robot.x=0; robot.y=0; robot.dir=1;
                 drawGrid();
                 await new Promise(r => setTimeout(r, 300));
