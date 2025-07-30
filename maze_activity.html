@@ -173,17 +173,18 @@
             try {
                 Blockly.JavaScript.init(workspace);
                 const code = Blockly.JavaScript.blockToCode(start);
-                // Fix: Define the functions that will be available in the 'new Function' scope.
-                // You need to pass these functions as arguments to the new function,
-                // and then invoke the created function with those arguments.
-                const fn = new Function('moveForward', 'turnLeft', 'turnRight', `
+                // Compile the generated code so it can call the helper
+                // functions defined above. We first create a wrapper
+                // function expecting these helpers as parameters and
+                // returning the async program. That wrapper is then
+                // invoked with the actual helper implementations.
+                const outer = new Function('moveForward', 'turnLeft', 'turnRight', `
                     return async () => {
                         ${code}
                     }
-                `)(); // Immediately invoke the outer function to get the async inner function
-                
-                // Now, call the returned async function, passing in your actual functions
-                await fn(moveForward, turnLeft, turnRight); 
+                `);
+                const run = outer(moveForward, turnLeft, turnRight);
+                await run();
 
             } catch(err) {
                 console.error(err);
