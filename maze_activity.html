@@ -196,32 +196,33 @@
             if (shouldStop) throw 'stopped';
         }
 
-        async function runProgram() {
-            do {
-                restartAfterStop = false;
-                isRunning = true;
-                runButton.textContent = 'Stop Program';
-                shouldStop = false;
-
-                robot.x=0; robot.y=0; robot.dir=1;
-                drawGrid();
-                await new Promise(r => setTimeout(r, 300));
-                const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
-                if (!start) { alert('Add a Start block.'); break; }
-                try {
-                    Blockly.JavaScript.init(workspace);
-                    const code = Blockly.JavaScript.blockToCode(start);
-                    const outer = new Function('moveForward', 'turnLeft', 'turnRight', `
-                        return async () => {
-                            ${code}
-                        }
-                    `);
-                    const run = outer(moveForward, turnLeft, turnRight);
-                    await run();
-                } catch(err) {
-                    if (err !== 'stopped') {
-                        console.error(err);
-                        alert('Runtime error; see console.');
+        runButton.addEventListener('click', async ()=>{
+            if (isRunning) return;
+            isRunning = true;
+            runButton.disabled = true;
+            // Reset robot to start facing right
+            robot.x=0; robot.y=0; robot.dir=1;
+            drawGrid();
+            // give the reset state a moment to render
+            await new Promise(r => setTimeout(r, 300));
+            const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
+            if (!start) {
+                alert('Add a Start block.');
+                isRunning = false;
+                runButton.disabled = false;
+                return;
+            }
+            try {
+                Blockly.JavaScript.init(workspace);
+                const code = Blockly.JavaScript.blockToCode(start);
+                // Compile the generated code so it can call the helper
+                // functions defined above. We first create a wrapper
+                // function expecting these helpers as parameters and
+                // returning the async program. That wrapper is then
+                // invoked with the actual helper implementations.
+                const outer = new Function('moveForward', 'turnLeft', 'turnRight', `
+                    return async () => {
+                        ${code}
 
                     }
                 } finally {
