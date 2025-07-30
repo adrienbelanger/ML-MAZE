@@ -170,15 +170,6 @@
         let isRunning = false;
         let shouldStop = false;
         let restartAfterStop = false;
-        let goalReached = false;
-
-        function resetBoard() {
-            maze = level === 2 ? generateSolvableMaze() : JSON.parse(JSON.stringify(staticMaze));
-            robot.x = 0;
-            robot.y = 0;
-            robot.dir = 1;
-            drawGrid();
-        }
 
         function updateLevelDisplay() {
             levelDisplay.textContent = 'Level: ' + level;
@@ -296,11 +287,6 @@
                 robot.x = nx; robot.y = ny;
             }
             drawGrid();
-            if (robot.x === 7 && robot.y === 7) {
-                goalReached = true;
-                shouldStop = true;
-                throw 'goal';
-            }
             await new Promise(r => setTimeout(r, 300));
             if (shouldStop) throw 'stopped';
         }
@@ -326,7 +312,6 @@
         async function runProgram() {
             do {
                 restartAfterStop = false;
-                goalReached = false;
                 isRunning = true;
                 runButton.textContent = 'Stop Program';
                 shouldStop = false;
@@ -350,35 +335,23 @@
                     const run = outer(moveForward, turnLeft, turnRight);
                     await run();
                 } catch(err) {
-                    if (err === 'goal') {
-                        // reached the goal; wait for user to reset
-                    } else if (err !== 'stopped') {
+                    if (err !== 'stopped') {
                         console.error(err);
                         alert('Runtime error; see console.');
 
                     }
                 } finally {
-                    if (goalReached) {
-                        // keep button as Stop Program so user can reset
-                        shouldStop = false;
-                    } else {
-                        isRunning = false;
-                        runButton.textContent = 'Run Program';
-                        resetBoard();
-                    }
+                    isRunning = false;
+                    runButton.textContent = 'Run Program';
                 }
             } while (restartAfterStop);
         }
 
 
         runButton.addEventListener('click', async ()=>{
-            if (goalReached) {
-                resetBoard();
-                goalReached = false;
-                isRunning = false;
-                runButton.textContent = 'Run Program';
-            } else if (isRunning) {
+            if (isRunning) {
                 shouldStop = true;
+                
             } else {
                 runButton.disabled = true;
                 try {
