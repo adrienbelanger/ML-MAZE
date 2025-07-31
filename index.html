@@ -6,7 +6,8 @@
     <title>Robot Blockly du labyrinthe</title>
     
     <script src="https://unpkg.com/blockly/blockly.min.js"></script>
-    
+    <script src="https://unpkg.com/blockly/msg/fr.js"></script>
+
     <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
     
@@ -127,6 +128,10 @@
     </div>
 
     <script>
+        if (typeof Blockly !== 'undefined' && typeof Blockly.setLocale === 'function') {
+            Blockly.setLocale(Blockly.Msg);
+        }
+
         /* Blockly block definitions */
         Blockly.defineBlocksWithJsonArray([
             { type: 'start_block', message0: 'Départ', nextStatement: null, colour: 120, hat: 'cap' },
