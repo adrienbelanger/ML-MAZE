@@ -239,12 +239,11 @@
         const robot = { x: 0, y: 0, dir: 1 };
         let trail = [];
 
-        /* Q-learning state */
-        const qTable = Array.from({length:256}, () => [0,0,0]);
-        let eps = 1.0;
-        const alpha = 0.5;
+        /* Value iteration state */
+        const valueTable = Array(256).fill(0);
+        const policyTable = Array(256).fill(0);
         const gamma = 0.9;
-        let episodes = 0;
+        let iterations = 0;
         let episodeLengths = [];
         let training = false;
 
@@ -396,14 +395,19 @@
             ctx.fill();
             ctx.restore();
 
-            const q = qTable[encodeState(robot)];
-            const minV = Math.min(...q), maxV = Math.max(...q);
-            const range = maxV - minV || 1;
-            const bx = robot.x*tileSize, by = robot.y*tileSize;
-            ctx.fillStyle = 'rgba(0,0,255,0.6)';
-            ctx.fillRect(bx+tileSize/2-2, by+tileSize/2 - ((q[0]-minV)/range)*(tileSize/3), 4, ((q[0]-minV)/range)*(tileSize/3));
-            ctx.fillRect(bx+tileSize/2 - ((q[1]-minV)/range)*(tileSize/3), by+tileSize/2-2, ((q[1]-minV)/range)*(tileSize/3), 4);
-            ctx.fillRect(bx+tileSize/2, by+tileSize/2-2, ((q[2]-minV)/range)*(tileSize/3), 4);
+            const a = policyTable[encodeState(robot)];
+            ctx.save();
+            ctx.translate(cx, cy);
+            const arrowDir = robot.dir + (a === 1 ? -1 : a === 2 ? 1 : 0);
+            ctx.rotate(arrowDir * Math.PI/2);
+            ctx.beginPath();
+            ctx.moveTo(0, -tileSize/5);
+            ctx.lineTo(tileSize/6, tileSize/6);
+            ctx.lineTo(-tileSize/6, tileSize/6);
+            ctx.closePath();
+            ctx.fillStyle = 'blue';
+            ctx.fill();
+            ctx.restore();
         }
 
         async function goalAnimation() {
@@ -491,12 +495,33 @@
         function encodeState(r) {
             return r.y * 32 + r.x * 4 + r.dir;
         }
-        function randomAct() { return Math.floor(Math.random()*3); }
-        function argMaxQ(s) {
-            const q = qTable[s];
-            return q.indexOf(Math.max(...q));
+        function decodeState(i) {
+            const dir = i % 4;
+            const x = Math.floor(i / 4) % 8;
+            const y = Math.floor(i / 32);
+            return {x, y, dir};
         }
-        function maxQ(s) { return Math.max(...qTable[s]); }
+        function nextStateFrom(s, a) {
+            const r = decodeState(s);
+            if (a===0) {
+                const dx=[0,1,0,-1], dy=[-1,0,1,0];
+                const nx=r.x+dx[r.dir], ny=r.y+dy[r.dir];
+                if (nx>=0 && ny>=0 && nx<8 && ny<8 && maze[ny][nx]===0) {
+                    r.x=nx; r.y=ny;
+                }
+            } else if (a===1) {
+                r.dir=(r.dir+3)%4;
+            } else {
+                r.dir=(r.dir+1)%4;
+            }
+            return encodeState(r);
+        }
+
+        function isGoalStateIndex(i) {
+            const r = decodeState(i);
+            return r.x===7 && r.y===7;
+        }
+        function argBestAction(s) { return policyTable[s]; }
 
         function atGoal() { return robot.x===7 && robot.y===7; }
 
@@ -547,35 +572,42 @@
         }
 
 
-        async function trainEpisode(maxSteps=128, fast=false) {
-            resetMaze(fast);
-
-            for (let t=0; t<maxSteps; t++) {
-                const s = encodeState(robot);
-                let a, exploring=false;
-                if (Math.random()<eps) { exploring=true; a=randomAct(); } else a=argMaxQ(s);
-
-                let reward;
-                if (fast) {
-                    applyAction(a);
-                    reward = atGoal() ? 0 : -1;
-                } else {
-                    reward = await stepAction(a, exploring? 'blue':'orange');
+        function valueIterationStep() {
+            const newValues = valueTable.slice();
+            let delta = 0;
+            for (let s=0; s<256; s++) {
+                if (isGoalStateIndex(s)) { newValues[s] = 0; policyTable[s]=0; continue; }
+                const qValues = [];
+                for (let a=0; a<3; a++) {
+                    const s2 = nextStateFrom(s,a);
+                    const reward = isGoalStateIndex(s2) ? 0 : -1;
+                    qValues[a] = reward + gamma*valueTable[s2];
                 }
-                const s2 = encodeState(robot);
-                qTable[s][a] += alpha*(reward + gamma*maxQ(s2) - qTable[s][a]);
-                if (!fast) drawGrid();
+                const best = Math.max(...qValues);
+                newValues[s] = best;
+                policyTable[s] = qValues.indexOf(best);
+                delta = Math.max(delta, Math.abs(valueTable[s]-best));
+            }
+            for (let i=0; i<256; i++) valueTable[i]=newValues[i];
+            return delta;
+        }
 
-                if (atGoal()) return t+1;
+        function evaluatePolicyFast(maxSteps=128) {
+            const r = {x:0, y:0, dir:1};
+            for (let t=0; t<maxSteps; t++) {
+                const s = encodeState(r);
+                const s2 = nextStateFrom(s, policyTable[s]);
+                Object.assign(r, decodeState(s2));
+                if (r.x===7 && r.y===7) return t+1;
             }
             return maxSteps;
         }
 
-        async function runGreedyEpisode(maxSteps=128) {
+        async function runPolicyEpisode(maxSteps=128) {
             resetMaze();
             for (let t=0; t<maxSteps; t++) {
                 const s = encodeState(robot);
-                const a = argMaxQ(s);
+                const a = policyTable[s];
                 await stepAction(a, 'orange');
                 drawGrid();
                 if (atGoal()) return t+1;
@@ -587,10 +619,10 @@
             training = true;
             updateModeDisplay();
             while (training) {
-                const len = await trainEpisode();
+                valueIterationStep();
+                const len = evaluatePolicyFast();
                 episodeLengths.push(len);
-                episodes++;
-                eps = Math.max(0.1, 1 - 0.9*episodes/200);
+                iterations++;
                 drawChart();
                 await new Promise(r=>setTimeout(r, 1000/speed));
             }
@@ -601,10 +633,10 @@
             training = true;
             updateModeDisplay();
             for (let i=0; i<n; i++) {
-                const len = await trainEpisode(128, true);
+                valueIterationStep();
+                const len = evaluatePolicyFast();
                 episodeLengths.push(len);
-                episodes++;
-                eps = Math.max(0.1, 1 - 0.9*episodes/200);
+                iterations++;
             }
             training = false;
             drawChart();
@@ -618,7 +650,7 @@
             shouldStop = false;
             updateModeDisplay();
             try {
-                await runGreedyEpisode();
+                await runPolicyEpisode();
             } catch (err) {
                 if (err !== 'stopped' && err !== 'goal') console.error(err);
             } finally {
