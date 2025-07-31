@@ -70,6 +70,17 @@
             cursor: pointer;
         }
 
+        #trainButton {
+            margin-top: 5px;
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        #speedSlider {
+            width: 100px;
+        }
+
 
         #modeButton {
             padding: 5px 10px;
@@ -89,6 +100,10 @@
             <span id="levelDisplay"></span>
             <button id="levelUpButton">Niveau +</button>
             <button id="modeButton">Mode : Blockly</button>
+            <label id="speedLabel" style="display:none;">Vitesse :
+                <input type="range" id="speedSlider" min="2" max="60" value="20">
+                <span id="speedValue">20</span>
+            </label>
         </div>
     </div>
 
@@ -232,19 +247,27 @@
         const ctx = canvas.getContext('2d');
         const runButton = document.getElementById('runButton');
         const trainButton = document.getElementById('trainButton');
-        
+
 
         const modeButton = document.getElementById('modeButton');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        const speedLabel = document.getElementById('speedLabel');
         const levelDisplay = document.getElementById('levelDisplay');
         const levelUpButton = document.getElementById('levelUpButton');
         const levelDownButton = document.getElementById('levelDownButton');
         let tileSize;
-        let speed = 20;
+        let speed = parseInt(speedSlider.value);
         let isRunning = false;
         let shouldStop = false;
         let restartAfterStop = false;
         let aiRunning = false;
         let mode = 'Blockly';
+
+        speedSlider.addEventListener('input', () => {
+            speed = parseInt(speedSlider.value);
+            speedValue.textContent = speed;
+        });
 
 
         function updateLevelDisplay() {
@@ -254,15 +277,15 @@
         function updateModeDisplay() {
             modeButton.textContent = 'Mode : ' + (mode === 'AI' ? 'IA' : 'Blockly');
             if (mode === 'Blockly') {
-                runButton.textContent = 'Exécuter le programme';
-                runButton.disabled = false;
+                runButton.textContent = isRunning ? 'Arrêter le programme' : 'Exécuter le programme';
                 trainButton.style.display = 'none';
+                speedLabel.style.display = 'none';
             } else {
-                runButton.textContent = "Lancer l'IA";
-                runButton.disabled = aiRunning || training;
+                runButton.textContent = aiRunning ? "Arrêter l'IA" : "Lancer l'IA";
                 trainButton.style.display = level===1 ? '' : 'none';
                 trainButton.disabled = aiRunning || training;
                 trainButton.textContent = training ? 'Entraînement…' : "Entraîner l'IA";
+                speedLabel.style.display = level===2 ? '' : 'none';
             }
         }
 
@@ -290,6 +313,7 @@
             }
             drawGrid();
             updateLevelDisplay();
+            updateModeDisplay();
         });
         levelDownButton.addEventListener('click', () => {
             if (level > 1) {
@@ -299,6 +323,7 @@
             }
 
             updateLevelDisplay();
+            updateModeDisplay();
         });
         updateLevelDisplay();
 
@@ -707,7 +732,11 @@
                     await runProgram();
                 }
             } else {
-                await runAIOnce();
+                if (aiRunning) {
+                    shouldStop = true;
+                } else {
+                    await runAIOnce();
+                }
             }
         });
 
