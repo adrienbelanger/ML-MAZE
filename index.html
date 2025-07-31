@@ -83,6 +83,7 @@
     <div id="visualArea">
         <canvas id="gridCanvas"></canvas>
         <button id="runButton">Exécuter le programme</button>
+        <button id="trainButton" style="display:none;">Entraîner l'IA</button>
         <div id="levelControls">
             <button id="levelDownButton">Niveau -</button>
             <span id="levelDisplay"></span>
@@ -230,6 +231,7 @@
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
         const runButton = document.getElementById('runButton');
+        const trainButton = document.getElementById('trainButton');
         
 
         const modeButton = document.getElementById('modeButton');
@@ -254,9 +256,13 @@
             if (mode === 'Blockly') {
                 runButton.textContent = 'Exécuter le programme';
                 runButton.disabled = false;
+                trainButton.style.display = 'none';
             } else {
                 runButton.textContent = "Lancer l'IA";
-                runButton.disabled = aiRunning;
+                runButton.disabled = aiRunning || training;
+                trainButton.style.display = level===1 ? '' : 'none';
+                trainButton.disabled = aiRunning || training;
+                trainButton.textContent = training ? 'Entraînement…' : "Entraîner l'IA";
             }
         }
 
@@ -567,15 +573,15 @@
         }
 
 
-        async function bfsSolve() {
+        function findPath(sx,sy,gx,gy){
             const n = maze.length;
-            const dirs = [[0,-1],[1,0],[0,1],[-1,0]];
-            const queue=[[0,0]];
-            const came = new Map();
-            came.set('0,0', null);
+            const dirs=[[0,-1],[1,0],[0,1],[-1,0]];
+            const queue=[[sx,sy]];
+            const came=new Map();
+            came.set(`${sx},${sy}`, null);
             while(queue.length){
                 const [x,y]=queue.shift();
-                if(x===n-1 && y===n-1) break;
+                if(x===gx && y===gy) break;
                 for(const [dx,dy] of dirs){
                     const nx=x+dx, ny=y+dy;
                     const key=`${nx},${ny}`;
@@ -585,19 +591,17 @@
                     }
                 }
             }
-            if(!came.has(`${n-1},${n-1}`)) return [];
+            if(!came.has(`${gx},${gy}`)) return null;
             const path=[];
-            let cur=[n-1,n-1];
+            let cur=[gx,gy];
             while(cur){
                 path.push(cur);
-                const prev=came.get(`${cur[0]},${cur[1]}`);
-                cur=prev;
+                cur=came.get(`${cur[0]},${cur[1]}`);
             }
             return path.reverse();
         }
 
-        async function runBFS() {
-            const path = await bfsSolve();
+        async function moveAlongPath(path, color='green'){
             for(let i=1;i<path.length;i++){
                 const [px,py]=path[i-1];
                 const [nx,ny]=path[i];
@@ -605,16 +609,42 @@
                 else if(nx<px) robot.dir=3;
                 else if(ny>py) robot.dir=2;
                 else robot.dir=0;
-                await moveForward('green');
+                await moveForward(color);
+            }
+        }
+
+        async function runBFS() {
+            const n=maze.length;
+            const dirs=[[0,-1],[1,0],[0,1],[-1,0]];
+            const queue=[[0,0]];
+            const visited=new Set(['0,0']);
+            while(queue.length){
+                const [x,y]=queue.shift();
+                const path=findPath(robot.x, robot.y, x, y);
+                if(path) await moveAlongPath(path,'green');
+                if(x===n-1 && y===n-1) return;
+                for(const [dx,dy] of dirs){
+                    const nx=x+dx, ny=y+dy;
+                    const key=`${nx},${ny}`;
+                    if(nx>=0&&ny>=0&&nx<n&&ny<n&&!maze[ny][nx]&&!visited.has(key)){
+                        visited.add(key);
+                        queue.push([nx,ny]);
+                    }
+                }
             }
         }
 
         async function runAIOnce() {
             aiRunning = true;
             shouldStop = false;
+            resetMaze();
             updateModeDisplay();
             try {
-                await runBFS();
+                if(level===1) {
+                    await runGreedyEpisode();
+                } else {
+                    await runBFS();
+                }
             } catch (err) {
                 if (err !== 'stopped' && err !== 'goal') console.error(err);
             } finally {
@@ -678,6 +708,13 @@
                 }
             } else {
                 await runAIOnce();
+            }
+        });
+
+        trainButton.addEventListener('click', async () => {
+            if (mode === 'AI' && level===1 && !training && !aiRunning) {
+                await runFastEpisodes(200);
+                updateModeDisplay();
             }
         });
 
