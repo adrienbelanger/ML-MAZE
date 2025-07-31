@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Blockly Maze Robot</title>
+    <title>Robot Blockly du labyrinthe</title>
     
     <script src="https://unpkg.com/blockly/blockly.min.js"></script>
     
@@ -113,27 +113,27 @@
     <div id="visualArea">
         <canvas id="gridCanvas"></canvas>
         <canvas id="chartCanvas" style="width:90%;max-width:600px;height:50px;"></canvas>
-        <button id="runButton">Run Program</button>
-        <button id="stopAIButton" style="display:none;">Stop AI</button>
-        <button id="trainButton">Start Training</button>
-        <button id="batchButton">Train 100</button>
+        <button id="runButton">Exécuter le programme</button>
+        <button id="stopAIButton" style="display:none;">Arrêter l'IA</button>
+        <button id="trainButton">Démarrer l'apprentissage</button>
+        <button id="batchButton">Entraîner 100</button>
         <div id="levelControls">
-            <button id="levelDownButton">Level -</button>
+            <button id="levelDownButton">Niveau -</button>
             <span id="levelDisplay"></span>
-            <button id="levelUpButton">Level +</button>
-            <button id="modeButton">Mode: Blockly</button>
-            <label id="speedLabel">Speed:<input type="range" id="speedSlider" min="2" max="60" value="20"> <span id="speedValue">20</span></label>
+            <button id="levelUpButton">Niveau +</button>
+            <button id="modeButton">Mode : Blockly</button>
+            <label id="speedLabel">Vitesse :<input type="range" id="speedSlider" min="2" max="60" value="20"> <span id="speedValue">20</span></label>
         </div>
     </div>
 
     <script>
         /* Blockly block definitions */
         Blockly.defineBlocksWithJsonArray([
-            { type: 'start_block', message0: 'Start', nextStatement: null, colour: 120, hat: 'cap' },
-            { type: 'move_forward', message0: 'Move Forward', previousStatement: null, nextStatement: null, colour: 230 },
-            { type: 'turn_left', message0: 'Turn Left', previousStatement: null, nextStatement: null, colour: 180 },
-            { type: 'turn_right', message0: 'Turn Right', previousStatement: null, nextStatement: null, colour: 180 },
-            { type: 'is_wall_ahead', message0: 'Wall ahead?', output: 'Boolean', colour: 60 }
+            { type: 'start_block', message0: 'Départ', nextStatement: null, colour: 120, hat: 'cap' },
+            { type: 'move_forward', message0: 'Avancer', previousStatement: null, nextStatement: null, colour: 230 },
+            { type: 'turn_left', message0: 'Tourner à gauche', previousStatement: null, nextStatement: null, colour: 180 },
+            { type: 'turn_right', message0: 'Tourner à droite', previousStatement: null, nextStatement: null, colour: 180 },
+            { type: 'is_wall_ahead', message0: 'Mur devant ?', output: 'Boolean', colour: 60 }
         ]);
         Blockly.JavaScript.forBlock['start_block'] = function(block) {
             const next = block.getNextBlock();
@@ -168,14 +168,14 @@
                     },
                     {
                         kind: 'category',
-                        name: 'Loops',
+                        name: 'Boucles',
                         contents: [
                             { kind: 'block', type: 'controls_whileUntil' }
                         ]
                     },
                     {
                         kind: 'category',
-                        name: 'Logic',
+                        name: 'Logique',
                         contents: [
                             { kind: 'block', type: 'controls_if' },
                             
@@ -274,13 +274,13 @@
         });
 
         function updateLevelDisplay() {
-            levelDisplay.textContent = 'Level: ' + level;
+            levelDisplay.textContent = 'Niveau : ' + level;
         }
 
         function updateModeDisplay() {
-            modeButton.textContent = 'Mode: ' + mode;
+            modeButton.textContent = 'Mode : ' + (mode === 'AI' ? 'IA' : mode);
             if (mode === 'Blockly') {
-                runButton.textContent = 'Run Program';
+                runButton.textContent = 'Exécuter le programme';
                 runButton.disabled = false;
                 stopAIButton.style.display = 'none';
                 trainButton.style.display = 'none';
@@ -288,7 +288,7 @@
                 chartCanvas.style.display = 'none';
                 speedLabel.style.display = 'none';
             } else {
-                runButton.textContent = 'Run AI';
+                runButton.textContent = "Lancer l'IA";
                 runButton.disabled = aiRunning;
                 stopAIButton.style.display = aiRunning ? '' : 'none';
                 trainButton.style.display = '';
@@ -296,7 +296,7 @@
                 chartCanvas.style.display = '';
                 speedLabel.style.display = '';
                 speedValue.textContent = speed;
-                trainButton.textContent = training ? 'Stop Training' : 'Start Training';
+                trainButton.textContent = training ? "Arrêter l'apprentissage" : "Démarrer l'apprentissage";
             }
         }
 
@@ -403,7 +403,7 @@
 
         async function goalAnimation() {
             const prevText = runButton.textContent;
-            runButton.textContent = 'Goal!';
+            runButton.textContent = 'But !';
             for (let i = 0; i < 8; i++) {
                 robot.dir = (robot.dir + 1) % 4;
                 drawGrid();
@@ -626,7 +626,7 @@
             do {
                 restartAfterStop = false;
                 isRunning = true;
-                runButton.textContent = 'Stop Program';
+                runButton.textContent = 'Arrêter le programme';
                 shouldStop = false;
 
 
@@ -637,9 +637,9 @@
                 await new Promise(r => setTimeout(r, 1000 / speed));
                 const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
                 if (!start) {
-                    alert('Add a Start block.');
+                    alert('Ajoutez un bloc Départ.');
                     isRunning = false;
-                    runButton.textContent = 'Run Program';
+                    runButton.textContent = 'Exécuter le programme';
                     break;
                 }
                 try {
@@ -655,12 +655,12 @@
                 } catch(err) {
                     if (err !== 'stopped' && err !== 'goal') {
                         console.error(err);
-                        alert('Runtime error; see console.');
+                        alert("Erreur d'exécution ; voir la console.");
 
                     }
                 } finally {
                     isRunning = false;
-                    runButton.textContent = 'Run Program';
+                    runButton.textContent = 'Exécuter le programme';
                     updateModeDisplay();
                 }
             } while (restartAfterStop);
