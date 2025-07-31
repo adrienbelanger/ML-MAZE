@@ -107,6 +107,16 @@
         #speedSlider {
             width: 100px;
         }
+        #paramControls {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: center;
+        }
+        #paramControls label {
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -124,6 +134,14 @@
             <button id="levelUpButton">Niveau +</button>
             <button id="modeButton">Mode : Blockly</button>
             <label id="speedLabel">Vitesse :<input type="range" id="speedSlider" min="2" max="60" value="20"> <span id="speedValue">20</span></label>
+            <button id="algoButton">Algo : Q-learning</button>
+        </div>
+        <div id="paramControls">
+            <label>α:<input type="number" step="0.01" min="0" max="1" id="alphaInput" value="0.5"></label>
+            <label>γ:<input type="number" step="0.01" min="0" max="1" id="gammaInput" value="0.9"></label>
+            <label>ε start:<input type="number" step="0.01" min="0" max="1" id="epsStartInput" value="1"></label>
+            <label>ε min:<input type="number" step="0.01" min="0" max="1" id="epsMinInput" value="0.1"></label>
+            <label>τ:<input type="number" step="1" min="1" max="500" id="tauInput" value="100"></label>
         </div>
     </div>
 
@@ -222,6 +240,9 @@
         loadWorkspaceFromURL();
         workspace.addChangeListener(() => updateURLFromWorkspace());
 
+        const Algorithm = { HUMAN:0, RL:1, BFS:2 };
+        let algorithm = Algorithm.RL;
+
         /* Maze & robot state */
         const staticMaze = [
             [0,0,1,0,0,0,1,0],
@@ -240,10 +261,52 @@
         let trail = [];
 
         /* Q-learning state */
-        const qTable = Array.from({length:256}, () => [0,0,0]);
-        let eps = 1.0;
-        const alpha = 0.5;
-        const gamma = 0.9;
+        const qTable = Array.from({length:32}, () => [0,0,0]);
+        const storedQ = localStorage.getItem('qTable');
+        if(storedQ){
+            try {
+                const arr = JSON.parse(storedQ);
+                if(Array.isArray(arr) && arr.length===32){
+                    for(let i=0;i<32;i++) qTable[i]=arr[i];
+                }
+            } catch(e){}
+        }
+        const alphaInput = document.getElementById('alphaInput');
+        const gammaInput = document.getElementById('gammaInput');
+        const epsStartInput = document.getElementById('epsStartInput');
+        const epsMinInput = document.getElementById('epsMinInput');
+        const tauInput = document.getElementById('tauInput');
+
+        let alpha = parseFloat(localStorage.getItem('alpha')) || 0.5;
+        let gamma = parseFloat(localStorage.getItem('gamma')) || 0.9;
+        let epsStart = parseFloat(localStorage.getItem('epsStart')) || 1;
+        let epsMin = parseFloat(localStorage.getItem('epsMin')) || 0.1;
+        let tau = parseFloat(localStorage.getItem('tau')) || 100;
+        let eps = epsStart;
+
+        alphaInput.value = alpha;
+        gammaInput.value = gamma;
+        epsStartInput.value = epsStart;
+        epsMinInput.value = epsMin;
+        tauInput.value = tau;
+
+        function persistParams() {
+            localStorage.setItem('alpha', alpha);
+            localStorage.setItem('gamma', gamma);
+            localStorage.setItem('epsStart', epsStart);
+            localStorage.setItem('epsMin', epsMin);
+            localStorage.setItem('tau', tau);
+        }
+
+        alphaInput.addEventListener('input', e=>{ alpha=parseFloat(e.target.value); persistParams(); });
+        gammaInput.addEventListener('input', e=>{ gamma=parseFloat(e.target.value); persistParams(); });
+        epsStartInput.addEventListener('input', e=>{ epsStart=parseFloat(e.target.value); eps=epsStart; persistParams(); });
+        epsMinInput.addEventListener('input', e=>{ epsMin=parseFloat(e.target.value); persistParams(); });
+        tauInput.addEventListener('input', e=>{ tau=parseFloat(e.target.value); persistParams(); });
+
+        let episodes = 0;
+        let episodeLengths = [];
+        let training = false;
         let episodes = 0;
         let episodeLengths = [];
         let training = false;
@@ -265,6 +328,7 @@
         const levelDisplay = document.getElementById('levelDisplay');
         const levelUpButton = document.getElementById('levelUpButton');
         const levelDownButton = document.getElementById('levelDownButton');
+        const algoButton = document.getElementById('algoButton');
         let tileSize;
         let speed = parseInt(speedSlider.value);
         let isRunning = false;
@@ -284,6 +348,7 @@
 
         function updateModeDisplay() {
             modeButton.textContent = 'Mode : ' + (mode === 'AI' ? 'IA' : mode);
+            algoButton.textContent = 'Algo : ' + (algorithm===Algorithm.RL ? 'Q-learning' : 'BFS');
             if (mode === 'Blockly') {
                 runButton.textContent = 'Exécuter le programme';
                 runButton.disabled = false;
@@ -314,6 +379,10 @@
             }
             resetMaze();
             updateModeDisplay();
+        });
+        algoButton.addEventListener('click', () => {
+            algorithm = algorithm === Algorithm.RL ? Algorithm.BFS : Algorithm.RL;
+            algoButton.textContent = 'Algo : ' + (algorithm===Algorithm.RL ? 'Q-learning' : 'BFS');
         });
         updateModeDisplay();
         levelUpButton.addEventListener('click', () => {
@@ -482,14 +551,24 @@
             if (shouldStop) throw 'stopped';
         }
 
+        function isWall(x, y) {
+            return !(x>=0 && y>=0 && x<8 && y<8 && maze[y][x]===0);
+        }
         function isWallAhead() {
             const dx = [0, 1, 0, -1], dy = [-1, 0, 1, 0];
-            const nx = robot.x + dx[robot.dir], ny = robot.y + dy[robot.dir];
-            return !(nx>=0 && ny>=0 && nx<8 && ny<8 && maze[ny][nx]===0);
+            return isWall(robot.x + dx[robot.dir], robot.y + dy[robot.dir]);
+        }
+
+        function sense(r){
+            const dx=[0,1,0,-1], dy=[-1,0,1,0];
+            const a=+isWall(r.x+dx[r.dir], r.y+dy[r.dir]);
+            const l=+isWall(r.x+dx[(r.dir+3)%4], r.y+dy[(r.dir+3)%4]);
+            const rt=+isWall(r.x+dx[(r.dir+1)%4], r.y+dy[(r.dir+1)%4]);
+            return (a<<2)|(l<<1)|rt;
         }
 
         function encodeState(r) {
-            return r.y * 32 + r.x * 4 + r.dir;
+            return sense(r)*4 + r.dir;
         }
         function randomAct() { return Math.floor(Math.random()*3); }
         function argMaxQ(s) {
@@ -520,7 +599,7 @@
             if (a===0) await moveForward(color);
             else if (a===1) await turnLeft(color);
             else await turnRight(color);
-            return atGoal() ? 0 : -1;
+            return atGoal() ? 1 : -0.04;
         }
 
 
@@ -558,7 +637,7 @@
                 let reward;
                 if (fast) {
                     applyAction(a);
-                    reward = atGoal() ? 0 : -1;
+                    reward = atGoal() ? 1 : -0.04;
                 } else {
                     reward = await stepAction(a, exploring? 'blue':'orange');
                 }
@@ -590,7 +669,10 @@
                 const len = await trainEpisode();
                 episodeLengths.push(len);
                 episodes++;
-                eps = Math.max(0.1, 1 - 0.9*episodes/200);
+                eps = Math.max(epsMin, epsStart * Math.exp(-episodes / tau));
+                if(episodes % 50 === 0){
+                    localStorage.setItem('qTable', JSON.stringify(qTable));
+                }
                 drawChart();
                 await new Promise(r=>setTimeout(r, 1000/speed));
             }
@@ -604,7 +686,10 @@
                 const len = await trainEpisode(128, true);
                 episodeLengths.push(len);
                 episodes++;
-                eps = Math.max(0.1, 1 - 0.9*episodes/200);
+                eps = Math.max(epsMin, epsStart * Math.exp(-episodes / tau));
+                if(episodes % 50 === 0){
+                    localStorage.setItem('qTable', JSON.stringify(qTable));
+                }
             }
             training = false;
             drawChart();
@@ -613,12 +698,52 @@
         }
 
 
+        async function bfsSolve() {
+            const n = maze.length;
+            const dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+            const queue=[[0,0]];
+            const came = new Map();
+            came.set('0,0', null);
+            while(queue.length){
+                const [x,y]=queue.shift();
+                if(x===n-1 && y===n-1) break;
+                for(const [dx,dy] of dirs){
+                    const nx=x+dx, ny=y+dy;
+                    const key=`${nx},${ny}`;
+                    if(nx>=0&&ny>=0&&nx<n&&ny<n&&!maze[ny][nx]&&!came.has(key)){
+                        came.set(key,[x,y]);
+                        queue.push([nx,ny]);
+                    }
+                }
+            }
+            if(!came.has(`${n-1},${n-1}`)) return [];
+            const path=[];
+            let cur=[n-1,n-1];
+            while(cur){
+                path.push(cur);
+                const prev=came.get(`${cur[0]},${cur[1]}`);
+                cur=prev;
+            }
+            return path.reverse();
+        }
+
+        async function runBFS() {
+            const path = await bfsSolve();
+            for(let i=1;i<path.length;i++){
+                robot.x=path[i][0];
+                robot.y=path[i][1];
+                drawGrid();
+                await new Promise(r=>setTimeout(r,100));
+            }
+        }
+
         async function runAIOnce() {
             aiRunning = true;
             shouldStop = false;
             updateModeDisplay();
             try {
-                await runGreedyEpisode();
+                if(algorithm===Algorithm.BFS) await runBFS();
+                else await runGreedyEpisode();
             } catch (err) {
                 if (err !== 'stopped' && err !== 'goal') console.error(err);
             } finally {
@@ -700,7 +825,7 @@
         });
 
         batchButton.addEventListener('click', async () => {
-            if (mode === 'AI' && !training) {
+            if (mode !== 'Blockly' && !training) {
                 await runFastEpisodes(100);
             }
         });
