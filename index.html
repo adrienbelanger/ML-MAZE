@@ -302,10 +302,7 @@
         levelUpButton.addEventListener('click', () => {
             if (level < 2) {
                 level++;
-            } else if (level === 2) {
-                // regenerate when pressing while already on level 2
-                maze = generateSolvableMaze();
-            }
+            } 
             if (level === 2) {
                 maze = generateSolvableMaze();
             } else {
