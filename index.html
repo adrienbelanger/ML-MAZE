@@ -415,35 +415,38 @@
         }
 
 
- function generateSolvableMaze() {
-    const n = 8;
-    const maze = Array.from({ length: n }, () => Array(n).fill(1));
-    const stack = [[0, 0]];
-    const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-    maze[0][0] = 0;
-    while (stack.length) {
-        const [x, y] = stack[stack.length - 1];
-        const next = [];
-        for (const [dx, dy] of dirs) {
-            const nx = x + dx * 2, ny = y + dy * 2;
-            if (nx >= 0 && ny >= 0 && nx < n && ny < n && maze[ny][nx]) next.push([nx, ny, dx, dy]);
-        }
-        if (next.length) {
-            const [nx, ny, dx, dy] = next[Math.random() * next.length | 0];
-            maze[y + dy][x + dx] = 0;
-            maze[ny][nx] = 0;
-            stack.push([nx, ny]);
-        } else {
-            stack.pop();
-        }
+function generateSolvableMaze(n=8, straightBias=0.8) {
+  const maze = Array.from({ length: n }, () => Array(n).fill(1));
+  const stack = [[0, 0]];
+  const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  maze[0][0] = 0;
+  let lastDir = null;
+  while (stack.length) {
+    const [x, y] = stack[stack.length - 1];
+    let opts = [];
+    for (const [dx, dy] of dirs) {
+      const nx = x + dx * 2, ny = y + dy * 2;
+      if (nx >= 0 && ny >= 0 && nx < n && ny < n && maze[ny][nx]) opts.push([nx, ny, dx, dy]);
     }
-    maze[n - 1][n - 1] = 0;
-    maze[n - 2][n - 1] = 0;   // (7,6)
-    maze[n - 1][n - 2] = 1;   // (6,7)
-    for (let y = 0; y < n; y++)
-        for (let x = 0; x < n; x++)
-            if (maze[y][x] && Math.random() < 0.1) maze[y][x] = 0;
-    return maze;
+    if (opts.length) {
+      if (lastDir && Math.random() < straightBias) {
+        const straight = opts.filter(o => o[2] === lastDir[0] && o[3] === lastDir[1]);
+        if (straight.length) opts = straight;
+      }
+      const [nx, ny, dx, dy] = opts[(Math.random() * opts.length) | 0];
+      maze[y + dy][x + dx] = 0;
+      maze[ny][nx] = 0;
+      stack.push([nx, ny]);
+      lastDir = [dx, dy];
+    } else {
+      stack.pop();
+      lastDir = null;
+    }
+  }
+  maze[n - 1][n - 1] = 0;
+  maze[n - 2][n - 1] = 0;
+  maze[n - 1][n - 2] = 1;
+  return maze;
 }
 
 
