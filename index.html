@@ -70,13 +70,6 @@
             cursor: pointer;
         }
 
-        #batchButton {
-            margin-top: 5px;
-            padding: 5px 10px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-
         #trainButton {
             margin-top: 5px;
             padding: 5px 10px;
@@ -84,28 +77,15 @@
             cursor: pointer;
         }
 
-        #stopAIButton {
-            margin-top: 5px;
-            padding: 5px 10px;
-            font-size: 14px;
-            cursor: pointer;
+        #speedSlider {
+            width: 100px;
         }
 
-        #chartCanvas {
-            width: 90%;
-            max-width: 600px;
-            height: 50px;
-            background: #fff;
-            box-shadow: 0 0 4px rgba(0,0,0,0.1);
-            margin-top: 5px;
-        }
+
         #modeButton {
             padding: 5px 10px;
             font-size: 14px;
             cursor: pointer;
-        }
-        #speedSlider {
-            width: 100px;
         }
     </style>
 </head>
@@ -113,17 +93,17 @@
     <div id="blocklyArea"></div>
     <div id="visualArea">
         <canvas id="gridCanvas"></canvas>
-        <canvas id="chartCanvas" style="width:90%;max-width:600px;height:50px;"></canvas>
         <button id="runButton">Exécuter le programme</button>
-        <button id="stopAIButton" style="display:none;">Arrêter l'IA</button>
-        <button id="trainButton">Démarrer l'apprentissage</button>
-        <button id="batchButton">Entraîner 100</button>
+        <button id="trainButton" style="display:none;">Entraîner l'IA</button>
         <div id="levelControls">
             <button id="levelDownButton">Niveau -</button>
             <span id="levelDisplay"></span>
             <button id="levelUpButton">Niveau +</button>
             <button id="modeButton">Mode : Blockly</button>
-            <label id="speedLabel">Vitesse :<input type="range" id="speedSlider" min="2" max="60" value="20"> <span id="speedValue">20</span></label>
+            <label id="speedLabel" style="display:none;">Vitesse :
+                <input type="range" id="speedSlider" min="2" max="60" value="20">
+                <span id="speedValue">20</span>
+            </label>
         </div>
     </div>
 
@@ -222,6 +202,7 @@
         loadWorkspaceFromURL();
         workspace.addChangeListener(() => updateURLFromWorkspace());
 
+
         /* Maze & robot state */
         const staticMaze = [
             [0,0,1,0,0,0,1,0],
@@ -240,10 +221,23 @@
         let trail = [];
 
         /* Q-learning state */
-        const qTable = Array.from({length:256}, () => [0,0,0]);
-        let eps = 1.0;
-        const alpha = 0.5;
-        const gamma = 0.9;
+        const qTable = Array.from({length:32}, () => [0,0,0]);
+        const storedQ = localStorage.getItem('qTable');
+        if(storedQ){
+            try {
+                const arr = JSON.parse(storedQ);
+                if(Array.isArray(arr) && arr.length===32){
+                    for(let i=0;i<32;i++) qTable[i]=arr[i];
+                }
+            } catch(e){}
+        }
+        let alpha = 0.5;
+        let gamma = 0.9;
+        let epsStart = 1;
+        let epsMin = 0.1;
+        let tau = 100;
+        let eps = epsStart;
+
         let episodes = 0;
         let episodeLengths = [];
         let training = false;
@@ -252,16 +246,13 @@
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
         const runButton = document.getElementById('runButton');
-        const stopAIButton = document.getElementById('stopAIButton');
         const trainButton = document.getElementById('trainButton');
-        const batchButton = document.getElementById('batchButton');
+
 
         const modeButton = document.getElementById('modeButton');
         const speedSlider = document.getElementById('speedSlider');
-        const speedLabel = document.getElementById('speedLabel');
         const speedValue = document.getElementById('speedValue');
-        const chartCanvas = document.getElementById('chartCanvas');
-        const chartCtx = chartCanvas.getContext('2d');
+        const speedLabel = document.getElementById('speedLabel');
         const levelDisplay = document.getElementById('levelDisplay');
         const levelUpButton = document.getElementById('levelUpButton');
         const levelDownButton = document.getElementById('levelDownButton');
@@ -278,30 +269,23 @@
             speedValue.textContent = speed;
         });
 
+
         function updateLevelDisplay() {
             levelDisplay.textContent = 'Niveau : ' + level;
         }
 
         function updateModeDisplay() {
-            modeButton.textContent = 'Mode : ' + (mode === 'AI' ? 'IA' : mode);
+            modeButton.textContent = 'Mode : ' + (mode === 'AI' ? 'IA' : 'Blockly');
             if (mode === 'Blockly') {
-                runButton.textContent = 'Exécuter le programme';
-                runButton.disabled = false;
-                stopAIButton.style.display = 'none';
+                runButton.textContent = isRunning ? 'Arrêter le programme' : 'Exécuter le programme';
                 trainButton.style.display = 'none';
-                batchButton.style.display = 'none';
-                chartCanvas.style.display = 'none';
                 speedLabel.style.display = 'none';
             } else {
-                runButton.textContent = "Lancer l'IA";
-                runButton.disabled = aiRunning;
-                stopAIButton.style.display = aiRunning ? '' : 'none';
-                trainButton.style.display = '';
-                batchButton.style.display = '';
-                chartCanvas.style.display = '';
-                speedLabel.style.display = '';
-                speedValue.textContent = speed;
-                trainButton.textContent = training ? "Arrêter l'apprentissage" : "Démarrer l'apprentissage";
+                runButton.textContent = aiRunning ? "Arrêter l'IA" : "Lancer l'IA";
+                trainButton.style.display = level===1 ? '' : 'none';
+                trainButton.disabled = aiRunning || training;
+                trainButton.textContent = training ? 'Entraînement…' : "Entraîner l'IA";
+                speedLabel.style.display = level===2 ? '' : 'none';
             }
         }
 
@@ -310,7 +294,6 @@
                 mode = 'AI';
             } else {
                 mode = 'Blockly';
-                if (training) training = false;
             }
             resetMaze();
             updateModeDisplay();
@@ -327,6 +310,7 @@
             }
             drawGrid();
             updateLevelDisplay();
+            updateModeDisplay();
         });
         levelDownButton.addEventListener('click', () => {
             if (level > 1) {
@@ -336,6 +320,7 @@
             }
 
             updateLevelDisplay();
+            updateModeDisplay();
         });
         updateLevelDisplay();
 
@@ -482,14 +467,24 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
             if (shouldStop) throw 'stopped';
         }
 
+        function isWall(x, y) {
+            return !(x>=0 && y>=0 && x<8 && y<8 && maze[y][x]===0);
+        }
         function isWallAhead() {
             const dx = [0, 1, 0, -1], dy = [-1, 0, 1, 0];
-            const nx = robot.x + dx[robot.dir], ny = robot.y + dy[robot.dir];
-            return !(nx>=0 && ny>=0 && nx<8 && ny<8 && maze[ny][nx]===0);
+            return isWall(robot.x + dx[robot.dir], robot.y + dy[robot.dir]);
+        }
+
+        function sense(r){
+            const dx=[0,1,0,-1], dy=[-1,0,1,0];
+            const a=+isWall(r.x+dx[r.dir], r.y+dy[r.dir]);
+            const l=+isWall(r.x+dx[(r.dir+3)%4], r.y+dy[(r.dir+3)%4]);
+            const rt=+isWall(r.x+dx[(r.dir+1)%4], r.y+dy[(r.dir+1)%4]);
+            return (a<<2)|(l<<1)|rt;
         }
 
         function encodeState(r) {
-            return r.y * 32 + r.x * 4 + r.dir;
+            return sense(r)*4 + r.dir;
         }
         function randomAct() { return Math.floor(Math.random()*3); }
         function argMaxQ(s) {
@@ -520,7 +515,7 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
             if (a===0) await moveForward(color);
             else if (a===1) await turnLeft(color);
             else await turnRight(color);
-            return atGoal() ? 0 : -1;
+            return atGoal() ? 1 : -0.04;
         }
 
 
@@ -531,20 +526,6 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
 
         }
 
-        function drawChart() {
-            const w = chartCanvas.width = chartCanvas.getBoundingClientRect().width * devicePixelRatio;
-            const h = chartCanvas.height = chartCanvas.getBoundingClientRect().height * devicePixelRatio;
-            chartCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-            chartCtx.clearRect(0,0,w,h);
-            chartCtx.strokeStyle = 'black';
-            chartCtx.beginPath();
-            episodeLengths.forEach((len,i)=>{
-                const x = i/(episodeLengths.length-1||1)*w/devicePixelRatio;
-                const y = h/devicePixelRatio - (len/128)*(h/devicePixelRatio);
-                if(i===0) chartCtx.moveTo(x,y); else chartCtx.lineTo(x,y);
-            });
-            chartCtx.stroke();
-        }
 
 
         async function trainEpisode(maxSteps=128, fast=false) {
@@ -558,7 +539,7 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
                 let reward;
                 if (fast) {
                     applyAction(a);
-                    reward = atGoal() ? 0 : -1;
+                    reward = atGoal() ? 1 : -0.04;
                 } else {
                     reward = await stepAction(a, exploring? 'blue':'orange');
                 }
@@ -590,8 +571,10 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
                 const len = await trainEpisode();
                 episodeLengths.push(len);
                 episodes++;
-                eps = Math.max(0.1, 1 - 0.9*episodes/200);
-                drawChart();
+                eps = Math.max(epsMin, epsStart * Math.exp(-episodes / tau));
+                if(episodes % 50 === 0){
+                    localStorage.setItem('qTable', JSON.stringify(qTable));
+                }
                 await new Promise(r=>setTimeout(r, 1000/speed));
             }
         }
@@ -604,21 +587,89 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
                 const len = await trainEpisode(128, true);
                 episodeLengths.push(len);
                 episodes++;
-                eps = Math.max(0.1, 1 - 0.9*episodes/200);
+                eps = Math.max(epsMin, epsStart * Math.exp(-episodes / tau));
+                if(episodes % 50 === 0){
+                    localStorage.setItem('qTable', JSON.stringify(qTable));
+                }
             }
             training = false;
-            drawChart();
             drawGrid();
             updateModeDisplay();
         }
 
 
+        function findPath(sx,sy,gx,gy){
+            const n = maze.length;
+            const dirs=[[0,-1],[1,0],[0,1],[-1,0]];
+            const queue=[[sx,sy]];
+            const came=new Map();
+            came.set(`${sx},${sy}`, null);
+            while(queue.length){
+                const [x,y]=queue.shift();
+                if(x===gx && y===gy) break;
+                for(const [dx,dy] of dirs){
+                    const nx=x+dx, ny=y+dy;
+                    const key=`${nx},${ny}`;
+                    if(nx>=0&&ny>=0&&nx<n&&ny<n&&!maze[ny][nx]&&!came.has(key)){
+                        came.set(key,[x,y]);
+                        queue.push([nx,ny]);
+                    }
+                }
+            }
+            if(!came.has(`${gx},${gy}`)) return null;
+            const path=[];
+            let cur=[gx,gy];
+            while(cur){
+                path.push(cur);
+                cur=came.get(`${cur[0]},${cur[1]}`);
+            }
+            return path.reverse();
+        }
+
+        async function moveAlongPath(path, color='green'){
+            for(let i=1;i<path.length;i++){
+                const [px,py]=path[i-1];
+                const [nx,ny]=path[i];
+                if(nx>px) robot.dir=1;
+                else if(nx<px) robot.dir=3;
+                else if(ny>py) robot.dir=2;
+                else robot.dir=0;
+                await moveForward(color);
+            }
+        }
+
+        async function runBFS() {
+            const n=maze.length;
+            const dirs=[[0,-1],[1,0],[0,1],[-1,0]];
+            const queue=[[0,0]];
+            const visited=new Set(['0,0']);
+            while(queue.length){
+                const [x,y]=queue.shift();
+                const path=findPath(robot.x, robot.y, x, y);
+                if(path) await moveAlongPath(path,'green');
+                if(x===n-1 && y===n-1) return;
+                for(const [dx,dy] of dirs){
+                    const nx=x+dx, ny=y+dy;
+                    const key=`${nx},${ny}`;
+                    if(nx>=0&&ny>=0&&nx<n&&ny<n&&!maze[ny][nx]&&!visited.has(key)){
+                        visited.add(key);
+                        queue.push([nx,ny]);
+                    }
+                }
+            }
+        }
+
         async function runAIOnce() {
             aiRunning = true;
             shouldStop = false;
+            resetMaze();
             updateModeDisplay();
             try {
-                await runGreedyEpisode();
+                if(level===1) {
+                    await runGreedyEpisode();
+                } else {
+                    await runBFS();
+                }
             } catch (err) {
                 if (err !== 'stopped' && err !== 'goal') console.error(err);
             } finally {
@@ -681,29 +732,21 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
                     await runProgram();
                 }
             } else {
-                await runAIOnce();
+                if (aiRunning) {
+                    shouldStop = true;
+                } else {
+                    await runAIOnce();
+                }
             }
-        });
-
-        stopAIButton.addEventListener('click', () => {
-            if (aiRunning) shouldStop = true;
         });
 
         trainButton.addEventListener('click', async () => {
-            resetMaze();
-            if (training) {
-                training = false;
-            } else {
-                trainingLoop();
+            if (mode === 'AI' && level===1 && !training && !aiRunning) {
+                await runFastEpisodes(200);
+                updateModeDisplay();
             }
-            updateModeDisplay();
         });
 
-        batchButton.addEventListener('click', async () => {
-            if (mode === 'AI' && !training) {
-                await runFastEpisodes(100);
-            }
-        });
 
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
