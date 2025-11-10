@@ -12,118 +12,177 @@
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
     
     <style>
-      
-        /* ensure all elements size consistently */
+        :root {
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --line: #dfe3eb;
+            --accent: #2563eb;
+            --text: #111827;
+        }
+
         *, *::before, *::after {
             box-sizing: border-box;
         }
+
         html, body {
             margin: 0;
             padding: 0;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            font-family: sans-serif;
-        }
-        /* left side: Blockly */
-        #blocklyArea {
-            flex: 0 0 40%;
             height: 100%;
-            border-right: 1px solid #ccc;
-            overflow: hidden;
+            font-family: "Inter", "Segoe UI", sans-serif;
+            color: var(--text);
+            background: var(--bg);
         }
-        /* right side: canvas + button */
+
+        body {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        #blocklyArea {
+            flex: 0 0 45%;
+            min-width: 340px;
+            background: var(--surface);
+            border-right: 1px solid var(--line);
+        }
+
         #visualArea {
-            flex: 1 1 60%;
+            flex: 1;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: #f0f0f0;
-            padding: 10px;
+            gap: 16px;
+            padding: 20px;
+            background: var(--surface);
         }
-        #levelControls {
-            margin-top: 10px;
+
+        .controls-row {
             display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .pill-group {
+            display: flex;
+            flex-wrap: wrap;
             gap: 10px;
-            align-items: center;
         }
-        #levelControls button {
-            padding: 5px 10px;
+
+        .pill-group button {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 10px 18px;
             font-size: 14px;
+            font-weight: 600;
             cursor: pointer;
+            background: var(--surface);
+            color: var(--text);
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
         }
-        /* canvas sizing */
+
+        .pill-group button.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
         #gridCanvas {
-            width: 90%;
-            max-width: 600px;
+            width: 100%;
+            max-width: 640px;
             aspect-ratio: 1;
-            background: white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            display: block;
-        }
-        /* run button below canvas */
-        #runButton {
-            margin-top: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            align-self: center;
+            background: #fff;
         }
 
-        #batchButton {
-            margin-top: 5px;
-            padding: 5px 10px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-
-        #trainButton {
-            margin-top: 5px;
-            padding: 5px 10px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-
-        #stopAIButton {
-            margin-top: 5px;
-            padding: 5px 10px;
-            font-size: 14px;
-            cursor: pointer;
+        #chartWrapper {
+            display: none;
+            width: 100%;
+            max-width: 640px;
+            align-self: center;
         }
 
         #chartCanvas {
-            width: 90%;
-            max-width: 600px;
-            height: 50px;
+            width: 100%;
+            height: 70px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
             background: #fff;
-            box-shadow: 0 0 4px rgba(0,0,0,0.1);
-            margin-top: 5px;
         }
-        #modeButton {
-            padding: 5px 10px;
-            font-size: 14px;
+
+        .control-group {
+            display: none;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group button {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
+            background: var(--accent);
+            color: #fff;
+            transition: opacity 0.15s ease;
         }
-        #speedSlider {
-            width: 100px;
+
+        .control-group button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 960px) {
+            body {
+                flex-direction: column;
+            }
+
+            #blocklyArea {
+                flex: 0 0 auto;
+                width: 100%;
+                height: 60vh;
+                border-right: none;
+                border-bottom: 1px solid var(--line);
+            }
+
+            #visualArea {
+                width: 100%;
+                min-height: 40vh;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .pill-group button,
+            .control-group button {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
     <div id="blocklyArea"></div>
     <div id="visualArea">
+        <div class="controls-row">
+            <div class="pill-group" id="levelTabs">
+                <button class="level-btn active" data-level="1">Niveau 1</button>
+                <button class="level-btn" data-level="2">Niveau 2</button>
+            </div>
+            <div class="pill-group" id="partTabs">
+                <button class="part-btn active" data-mode="Blockly">Mode Blocs</button>
+                <button class="part-btn" data-mode="AI">Mode IA</button>
+            </div>
+        </div>
         <canvas id="gridCanvas"></canvas>
-        <canvas id="chartCanvas" style="width:90%;max-width:600px;height:50px;"></canvas>
-        <button id="runButton">Exécuter le programme</button>
-        <button id="stopAIButton" style="display:none;">Arrêter l'IA</button>
-        <button id="trainButton">Démarrer l'apprentissage</button>
-        <button id="batchButton">Entraîner 100</button>
-        <div id="levelControls">
-            <button id="levelDownButton">Niveau -</button>
-            <span id="levelDisplay"></span>
-            <button id="levelUpButton">Niveau +</button>
-            <button id="modeButton">Mode : Blockly</button>
-            <label id="speedLabel">Vitesse :<input type="range" id="speedSlider" min="2" max="60" value="20"> <span id="speedValue">20</span></label>
+        <div id="chartWrapper">
+            <canvas id="chartCanvas"></canvas>
+        </div>
+        <div id="blocklyControls" class="control-group">
+            <button id="runButton">Tester mon programme</button>
+        </div>
+        <div id="aiControls" class="control-group">
+            <button id="aiIterationButton">Lancer une itération IA</button>
+            <button id="batchButton">Entraîner 100 fois</button>
         </div>
     </div>
 
@@ -244,100 +303,88 @@
         let eps = 1.0;
         const alpha = 0.5;
         const gamma = 0.9;
+        const MAX_STEPS = 128;
+        const STEP_DELAY_MS = 60;
+        const ITERATION_PAUSE_MS = 250;
+        const SCORE_HISTORY_LIMIT = 200;
+        const TRAIL_COLOR = '#2563eb';
         let episodes = 0;
-        let episodeLengths = [];
-        let training = false;
+        let trainingScores = [];
+        let aiIterationRunning = false;
+        let bulkTraining = false;
 
-        /* Canvas setup */
+        /* Canvas & UI references */
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
         const runButton = document.getElementById('runButton');
-        const stopAIButton = document.getElementById('stopAIButton');
-        const trainButton = document.getElementById('trainButton');
+        const aiIterationButton = document.getElementById('aiIterationButton');
         const batchButton = document.getElementById('batchButton');
-
-        const modeButton = document.getElementById('modeButton');
-        const speedSlider = document.getElementById('speedSlider');
-        const speedLabel = document.getElementById('speedLabel');
-        const speedValue = document.getElementById('speedValue');
+        const blocklyControls = document.getElementById('blocklyControls');
+        const aiControls = document.getElementById('aiControls');
+        const chartWrapper = document.getElementById('chartWrapper');
         const chartCanvas = document.getElementById('chartCanvas');
         const chartCtx = chartCanvas.getContext('2d');
-        const levelDisplay = document.getElementById('levelDisplay');
-        const levelUpButton = document.getElementById('levelUpButton');
-        const levelDownButton = document.getElementById('levelDownButton');
+        const levelButtons = document.querySelectorAll('.level-btn');
+        const partButtons = document.querySelectorAll('.part-btn');
         let tileSize;
-        let speed = parseInt(speedSlider.value);
         let isRunning = false;
         let shouldStop = false;
         let restartAfterStop = false;
-        let aiRunning = false;
         let mode = 'Blockly';
 
-        speedSlider.addEventListener('input', () => {
-            speed = parseInt(speedSlider.value);
-            speedValue.textContent = speed;
-        });
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-        function updateLevelDisplay() {
-            levelDisplay.textContent = 'Niveau : ' + level;
+        function updateLevelUI() {
+            levelButtons.forEach(btn => {
+                const btnLevel = parseInt(btn.dataset.level, 10);
+                btn.classList.toggle('active', btnLevel === level);
+            });
         }
 
         function updateModeDisplay() {
-            modeButton.textContent = 'Mode : ' + (mode === 'AI' ? 'IA' : mode);
-            if (mode === 'Blockly') {
-                runButton.textContent = 'Exécuter le programme';
-                runButton.disabled = false;
-                stopAIButton.style.display = 'none';
-                trainButton.style.display = 'none';
-                batchButton.style.display = 'none';
-                chartCanvas.style.display = 'none';
-                speedLabel.style.display = 'none';
-            } else {
-                runButton.textContent = "Lancer l'IA";
-                runButton.disabled = aiRunning;
-                stopAIButton.style.display = aiRunning ? '' : 'none';
-                trainButton.style.display = '';
-                batchButton.style.display = '';
-                chartCanvas.style.display = '';
-                speedLabel.style.display = '';
-                speedValue.textContent = speed;
-                trainButton.textContent = training ? "Arrêter l'apprentissage" : "Démarrer l'apprentissage";
+            partButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+
+            blocklyControls.style.display = mode === 'Blockly' ? 'flex' : 'none';
+            aiControls.style.display = mode === 'AI' ? 'flex' : 'none';
+            chartWrapper.style.display = mode === 'AI' ? 'flex' : 'none';
+
+            runButton.textContent = isRunning ? 'Arrêter le programme' : 'Tester mon programme';
+            aiIterationButton.textContent = aiIterationRunning ? 'Arrêter cette itération' : 'Lancer une itération IA';
+            aiIterationButton.disabled = bulkTraining;
+            batchButton.disabled = aiIterationRunning || bulkTraining;
+
+            if (mode === 'AI') {
+                drawChart();
             }
         }
 
-        modeButton.addEventListener('click', () => {
-            if (mode === 'Blockly') {
-                mode = 'AI';
-            } else {
-                mode = 'Blockly';
-                if (training) training = false;
-            }
-            resetMaze();
-            updateModeDisplay();
+        levelButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const newLevel = parseInt(btn.dataset.level, 10);
+                if (newLevel === level) return;
+                level = newLevel;
+                shouldStop = true;
+                resetMaze();
+                updateLevelUI();
+            });
+        });
+        updateLevelUI();
+
+        partButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const selectedMode = btn.dataset.mode;
+                if (selectedMode === mode) return;
+                if (selectedMode === 'Blockly' && aiIterationRunning) {
+                    shouldStop = true;
+                }
+                mode = selectedMode;
+                resetMaze();
+                updateModeDisplay();
+            });
         });
         updateModeDisplay();
-        levelUpButton.addEventListener('click', () => {
-            if (level < 2) {
-                level++;
-            } 
-            if (level === 2) {
-                maze = generateSolvableMaze();
-            } else {
-                maze = JSON.parse(JSON.stringify(staticMaze));
-            }
-            drawGrid();
-            updateLevelDisplay();
-        });
-        levelDownButton.addEventListener('click', () => {
-            if (level > 1) {
-                level--;
-                maze = JSON.parse(JSON.stringify(staticMaze));
-                drawGrid();
-            }
-
-            updateLevelDisplay();
-        });
-        updateLevelDisplay();
 
         function resizeCanvas() {
             // match drawing buffer to CSS size × devicePixelRatio
@@ -354,6 +401,9 @@
                 Blockly.svgResize(workspace);
             } else if (typeof workspace.resize === 'function') {
                 workspace.resize();
+            }
+            if (mode === 'AI') {
+                drawChart();
             }
         }
 
@@ -404,55 +454,55 @@
         }
 
         async function goalAnimation() {
-            const prevText = runButton.textContent;
-            runButton.textContent = 'But !';
+            const feedbackButton = mode === 'AI' ? aiIterationButton : runButton;
+            const prevText = feedbackButton ? feedbackButton.textContent : '';
+            if (feedbackButton) feedbackButton.textContent = 'But !';
             for (let i = 0; i < 8; i++) {
                 robot.dir = (robot.dir + 1) % 4;
                 drawGrid();
-                await new Promise(r => setTimeout(r, 100));
+                await delay(100);
             }
-            runButton.textContent = prevText;
+            if (feedbackButton) feedbackButton.textContent = prevText;
+        }
+        // Generates a perfect maze so the wall-following strategy always succeeds.
+        function generateWallFollowerMaze(n=8, straightBias=0.8) {
+            const maze = Array.from({ length: n }, () => Array(n).fill(1));
+            const stack = [[0, 0]];
+            const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+            maze[0][0] = 0;
+            let lastDir = null;
+            while (stack.length) {
+                const [x, y] = stack[stack.length - 1];
+                let opts = [];
+                for (const [dx, dy] of dirs) {
+                    const nx = x + dx * 2, ny = y + dy * 2;
+                    if (nx >= 0 && ny >= 0 && nx < n && ny < n && maze[ny][nx]) opts.push([nx, ny, dx, dy]);
+                }
+                if (opts.length) {
+                    if (lastDir && Math.random() < straightBias) {
+                        const straight = opts.filter(o => o[2] === lastDir[0] && o[3] === lastDir[1]);
+                        if (straight.length) opts = straight;
+                    }
+                    const [nx, ny, dx, dy] = opts[(Math.random() * opts.length) | 0];
+                    maze[y + dy][x + dx] = 0;
+                    maze[ny][nx] = 0;
+                    stack.push([nx, ny]);
+                    lastDir = [dx, dy];
+                } else {
+                    stack.pop();
+                    lastDir = null;
+                }
+            }
+            maze[n - 1][n - 1] = 0;
+            maze[n - 2][n - 1] = 0;
+            maze[n - 1][n - 2] = 1;
+            return maze;
         }
 
 
-function generateSolvableMaze(n=8, straightBias=0.8) {
-  const maze = Array.from({ length: n }, () => Array(n).fill(1));
-  const stack = [[0, 0]];
-  const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-  maze[0][0] = 0;
-  let lastDir = null;
-  while (stack.length) {
-    const [x, y] = stack[stack.length - 1];
-    let opts = [];
-    for (const [dx, dy] of dirs) {
-      const nx = x + dx * 2, ny = y + dy * 2;
-      if (nx >= 0 && ny >= 0 && nx < n && ny < n && maze[ny][nx]) opts.push([nx, ny, dx, dy]);
-    }
-    if (opts.length) {
-      if (lastDir && Math.random() < straightBias) {
-        const straight = opts.filter(o => o[2] === lastDir[0] && o[3] === lastDir[1]);
-        if (straight.length) opts = straight;
-      }
-      const [nx, ny, dx, dy] = opts[(Math.random() * opts.length) | 0];
-      maze[y + dy][x + dx] = 0;
-      maze[ny][nx] = 0;
-      stack.push([nx, ny]);
-      lastDir = [dx, dy];
-    } else {
-      stack.pop();
-      lastDir = null;
-    }
-  }
-  maze[n - 1][n - 1] = 0;
-  maze[n - 2][n - 1] = 0;
-  maze[n - 1][n - 2] = 1;
-  return maze;
-}
-
-
-        async function moveForward(color) {
+        async function moveForward(paintTrail=false) {
             if (shouldStop) throw 'stopped';
-            if (color) trail.push({x: robot.x, y: robot.y, color});
+            if (paintTrail) trail.push({x: robot.x, y: robot.y, color: TRAIL_COLOR});
             const dx = [0, 1, 0, -1], dy = [-1, 0, 1, 0];
             const nx = robot.x + dx[robot.dir], ny = robot.y + dy[robot.dir];
             if (nx>=0 && ny>=0 && nx<8 && ny<8 && maze[ny][nx]===0) {
@@ -464,21 +514,21 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
                 shouldStop = true;
                 throw 'goal';
             }
-            await new Promise(r => setTimeout(r, 1000 / speed));
+            await delay(STEP_DELAY_MS);
             if (shouldStop) throw 'stopped';
         }
-        async function turnLeft(color) {
+        async function turnLeft(paintTrail=false) {
             if (shouldStop) throw 'stopped';
-            if (color) trail.push({x: robot.x, y: robot.y, color});
+            if (paintTrail) trail.push({x: robot.x, y: robot.y, color: TRAIL_COLOR});
             robot.dir=(robot.dir+3)%4; drawGrid();
-            await new Promise(r => setTimeout(r, 1000 / speed));
+            await delay(STEP_DELAY_MS);
             if (shouldStop) throw 'stopped';
         }
-        async function turnRight(color) {
+        async function turnRight(paintTrail=false) {
             if (shouldStop) throw 'stopped';
-            if (color) trail.push({x: robot.x, y: robot.y, color});
+            if (paintTrail) trail.push({x: robot.x, y: robot.y, color: TRAIL_COLOR});
             robot.dir=(robot.dir+1)%4; drawGrid();
-            await new Promise(r => setTimeout(r, 1000 / speed));
+            await delay(STEP_DELAY_MS);
             if (shouldStop) throw 'stopped';
         }
 
@@ -516,38 +566,47 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
         }
 
 
-        async function stepAction(a, color) {
-            if (a===0) await moveForward(color);
-            else if (a===1) await turnLeft(color);
-            else await turnRight(color);
+        async function stepAction(a, paintTrail=false) {
+            if (a===0) await moveForward(paintTrail);
+            else if (a===1) await turnLeft(paintTrail);
+            else await turnRight(paintTrail);
             return atGoal() ? 0 : -1;
         }
 
 
         function resetMaze(skipDraw=false) {
-            maze = level === 2 ? generateSolvableMaze() : JSON.parse(JSON.stringify(staticMaze));
+            maze = level === 2 ? generateWallFollowerMaze() : JSON.parse(JSON.stringify(staticMaze));
             robot.x=0; robot.y=0; robot.dir=1; trail=[];
             if (!skipDraw) drawGrid();
 
         }
 
         function drawChart() {
-            const w = chartCanvas.width = chartCanvas.getBoundingClientRect().width * devicePixelRatio;
-            const h = chartCanvas.height = chartCanvas.getBoundingClientRect().height * devicePixelRatio;
+            const rect = chartCanvas.getBoundingClientRect();
+            const w = chartCanvas.width = rect.width * devicePixelRatio;
+            const h = chartCanvas.height = rect.height * devicePixelRatio;
             chartCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
             chartCtx.clearRect(0,0,w,h);
-            chartCtx.strokeStyle = 'black';
+
+            if (!trainingScores.length) {
+                return;
+            }
+
+            const viewW = w / devicePixelRatio;
+            const viewH = h / devicePixelRatio;
+            chartCtx.strokeStyle = '#2d6cdf';
+            chartCtx.lineWidth = 2;
             chartCtx.beginPath();
-            episodeLengths.forEach((len,i)=>{
-                const x = i/(episodeLengths.length-1||1)*w/devicePixelRatio;
-                const y = h/devicePixelRatio - (len/128)*(h/devicePixelRatio);
-                if(i===0) chartCtx.moveTo(x,y); else chartCtx.lineTo(x,y);
+            trainingScores.forEach((score, i) => {
+                const x = trainingScores.length === 1 ? 0 : (i / (trainingScores.length - 1)) * viewW;
+                const y = viewH - (score / MAX_STEPS) * viewH;
+                if (i === 0) chartCtx.moveTo(x, y); else chartCtx.lineTo(x, y);
             });
             chartCtx.stroke();
         }
 
 
-        async function trainEpisode(maxSteps=128, fast=false) {
+        async function trainEpisode(maxSteps=MAX_STEPS, fast=false) {
             resetMaze(fast);
 
             for (let t=0; t<maxSteps; t++) {
@@ -560,7 +619,14 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
                     applyAction(a);
                     reward = atGoal() ? 0 : -1;
                 } else {
-                    reward = await stepAction(a, exploring? 'blue':'orange');
+                    try {
+                        reward = await stepAction(a, true);
+                    } catch (err) {
+                        if (err === 'goal') {
+                            return t+1;
+                        }
+                        throw err;
+                    }
                 }
                 const s2 = encodeState(robot);
                 qTable[s][a] += alpha*(reward + gamma*maxQ(s2) - qTable[s][a]);
@@ -571,58 +637,49 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
             return maxSteps;
         }
 
-        async function runGreedyEpisode(maxSteps=128) {
-            resetMaze();
-            for (let t=0; t<maxSteps; t++) {
-                const s = encodeState(robot);
-                const a = argMaxQ(s);
-                await stepAction(a, 'orange');
-                drawGrid();
-                if (atGoal()) return t+1;
+        function recordEpisode(len) {
+            if (typeof len !== 'number') return;
+            const score = Math.max(0, MAX_STEPS - len);
+            trainingScores.push(score);
+            if (trainingScores.length > SCORE_HISTORY_LIMIT) {
+                trainingScores.shift();
             }
-            return maxSteps;
-        }
-
-        async function trainingLoop() {
-            training = true;
-            updateModeDisplay();
-            while (training) {
-                const len = await trainEpisode();
-                episodeLengths.push(len);
-                episodes++;
-                eps = Math.max(0.1, 1 - 0.9*episodes/200);
-                drawChart();
-                await new Promise(r=>setTimeout(r, 1000/speed));
-            }
-        }
-
-
-        async function runFastEpisodes(n=100) {
-            training = true;
-            updateModeDisplay();
-            for (let i=0; i<n; i++) {
-                const len = await trainEpisode(128, true);
-                episodeLengths.push(len);
-                episodes++;
-                eps = Math.max(0.1, 1 - 0.9*episodes/200);
-            }
-            training = false;
+            episodes++;
+            eps = Math.max(0.1, 1 - 0.9*episodes/200);
             drawChart();
-            drawGrid();
-            updateModeDisplay();
         }
 
-
-        async function runAIOnce() {
-            aiRunning = true;
+        async function runTrainingIteration() {
+            aiIterationRunning = true;
             shouldStop = false;
             updateModeDisplay();
             try {
-                await runGreedyEpisode();
+                const len = await trainEpisode();
+                recordEpisode(len);
+                await delay(ITERATION_PAUSE_MS);
             } catch (err) {
                 if (err !== 'stopped' && err !== 'goal') console.error(err);
             } finally {
-                aiRunning = false;
+                aiIterationRunning = false;
+                shouldStop = false;
+                drawGrid();
+                updateModeDisplay();
+            }
+        }
+
+        async function runFastEpisodes(n=100) {
+            if (aiIterationRunning || bulkTraining) return;
+            bulkTraining = true;
+            shouldStop = false;
+            updateModeDisplay();
+            try {
+                for (let i=0; i<n; i++) {
+                    const len = await trainEpisode(MAX_STEPS, true);
+                    recordEpisode(len);
+                }
+            } finally {
+                bulkTraining = false;
+                drawGrid();
                 updateModeDisplay();
             }
         }
@@ -631,20 +688,20 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
             do {
                 restartAfterStop = false;
                 isRunning = true;
-                runButton.textContent = 'Arrêter le programme';
                 shouldStop = false;
+                updateModeDisplay();
 
 
-                maze = level === 2 ? generateSolvableMaze() : JSON.parse(JSON.stringify(staticMaze));
+                maze = level === 2 ? generateWallFollowerMaze() : JSON.parse(JSON.stringify(staticMaze));
 
-                robot.x=0; robot.y=0; robot.dir=1;
+                robot.x=0; robot.y=0; robot.dir=1; trail=[];
                 drawGrid();
-                await new Promise(r => setTimeout(r, 1000 / speed));
+                await delay(STEP_DELAY_MS);
                 const start = workspace.getTopBlocks(true).find(b=>b.type==='start_block');
                 if (!start) {
                     alert('Ajoutez un bloc Départ.');
                     isRunning = false;
-                    runButton.textContent = 'Exécuter le programme';
+                    updateModeDisplay();
                     break;
                 }
                 try {
@@ -665,7 +722,6 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
                     }
                 } finally {
                     isRunning = false;
-                    runButton.textContent = 'Exécuter le programme';
                     updateModeDisplay();
                 }
             } while (restartAfterStop);
@@ -673,34 +729,26 @@ function generateSolvableMaze(n=8, straightBias=0.8) {
 
 
         runButton.addEventListener('click', async ()=>{
-            if (mode === 'Blockly') {
-                if (isRunning) {
-                    if (shouldStop) restartAfterStop = true;
-                    shouldStop = true;
-                } else {
-                    await runProgram();
-                }
+            if (mode !== 'Blockly') return;
+            if (isRunning) {
+                if (shouldStop) restartAfterStop = true;
+                shouldStop = true;
             } else {
-                await runAIOnce();
+                await runProgram();
             }
         });
 
-        stopAIButton.addEventListener('click', () => {
-            if (aiRunning) shouldStop = true;
-        });
-
-        trainButton.addEventListener('click', async () => {
-            resetMaze();
-            if (training) {
-                training = false;
-            } else {
-                trainingLoop();
+        aiIterationButton.addEventListener('click', async () => {
+            if (mode !== 'AI' || bulkTraining) return;
+            if (aiIterationRunning) {
+                shouldStop = true;
+                return;
             }
-            updateModeDisplay();
+            await runTrainingIteration();
         });
 
         batchButton.addEventListener('click', async () => {
-            if (mode === 'AI' && !training) {
+            if (mode === 'AI' && !aiIterationRunning && !bulkTraining) {
                 await runFastEpisodes(100);
             }
         });
